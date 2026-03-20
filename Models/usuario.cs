@@ -8,5 +8,7 @@ namespace Coco_Beach.Models
         public int usuarioid { get; set; }
         public string? password { get; set; }
         public int personaid { get; set; }
+
+        public persona? persona { get; set; }
     }
 }

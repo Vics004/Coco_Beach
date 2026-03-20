@@ -12,5 +12,8 @@ namespace Coco_Beach.Models
         public int? rolid { get; set; }
         public string? estado { get; set; }
         public string? telefono { get; set; }
+
+
+        public rol? rol { get; set; }
     }
 }
