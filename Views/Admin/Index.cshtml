@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Gestión de Usuarios";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <!-- Incluir Bootstrap Icons si no está en el layout -->
@@ -22,7 +22,7 @@
                         <p class="mb-0 text-white-75 small">Gestión de seguridad y accesos del sistema</p>
                     </div>
                 </div>
-                <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light btn-sm">
+                <a asp-controller="Login" asp-action="Index" class="btn btn-outline-light btn-sm">
                     <i class="bi bi-arrow-left-circle"></i> Volver al panel
                 </a>
             </div>

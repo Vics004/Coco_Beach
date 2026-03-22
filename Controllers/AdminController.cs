@@ -1,4 +1,5 @@
 ﻿using Coco_Beach.Models;
+using Coco_Beach.Servicios;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -9,12 +10,14 @@ namespace Coco_Beach.Controllers
     {
         private readonly Coco_BeachDbContext _context;
 
+        
         public AdminController(Coco_BeachDbContext context)
         {
             _context = context;
         }
         // GET: usuario
         // GET: Admin
+        [AutenticationAttribute.Autenticacion]
         public async Task<IActionResult> Index()
         {
             var personasConUsuario = await _context.persona
@@ -25,7 +28,7 @@ namespace Coco_Beach.Controllers
             return View(personasConUsuario);
         }
 
-
+        [AutenticationAttribute.Autenticacion]
         // GET: Admin/Create
         public IActionResult Create()
         {
@@ -33,6 +36,7 @@ namespace Coco_Beach.Controllers
             return View();
         }
 
+        [AutenticationAttribute.Autenticacion]
         // POST: Admin/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -61,6 +65,7 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
+        [AutenticationAttribute.Autenticacion]
         // GET: Admin/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
@@ -74,6 +79,8 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
+
+        [AutenticationAttribute.Autenticacion]
         // POST: Admin/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -104,6 +111,7 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
+        [AutenticationAttribute.Autenticacion]
         // GET: Admin/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
@@ -118,6 +126,7 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
+        [AutenticationAttribute.Autenticacion]
         // POST: Admin/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
@@ -139,6 +148,7 @@ namespace Coco_Beach.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [AutenticationAttribute.Autenticacion]
         private bool PersonaExists(int id)
         {
             return _context.persona.Any(e => e.personaid == id);

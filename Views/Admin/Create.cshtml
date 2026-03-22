@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Crear Nuevo Usuario";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid mt-4">
@@ -18,7 +19,7 @@
                         <p class="mb-0 text-white-75 small">Gestión de seguridad y accesos del sistema</p>
                     </div>
                 </div>
-                <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light btn-sm">
+                <a asp-controller="Login" asp-action="Index" class="btn btn-outline-light btn-sm">
                     <i class="bi bi-arrow-left-circle"></i> Volver al panel
                 </a>
             </div>
