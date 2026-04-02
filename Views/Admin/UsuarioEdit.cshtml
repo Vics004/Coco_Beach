@@ -1,0 +1,131 @@
+﻿@model persona
+
+@{
+    ViewData["Title"] = "Editar Usuario";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<div class="container-fluid">
+
+    <!-- Cabecera de página -->
+    <div class="cb-page-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-pencil-square cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Modifica los datos del usuario seleccionado</p>
+            </div>
+        </div>
+        <a asp-action="UsuarioIndex" class="cb-btn cb-btn-volver">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <!-- Formulario -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+
+            <form asp-action="UsuarioEdit" method="post">
+                <div asp-validation-summary="ModelOnly" class="cb-alert cb-alert-danger mb-4"></div>
+                <input type="hidden" asp-for="personaid" />
+
+                <div class="row g-4">
+
+                    <div class="col-md-6">
+                        <label class="cb-label">Nombre</label>
+                        <input asp-for="nombre" class="cb-form-control" placeholder="Nombre" />
+                        <span asp-validation-for="nombre" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="cb-label">Apellido</label>
+                        <input asp-for="apellido" class="cb-form-control" placeholder="Apellido" />
+                        <span asp-validation-for="apellido" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="cb-label">Correo Electrónico</label>
+                        <input asp-for="correo" class="cb-form-control" type="email" placeholder="ejemplo@correo.com" />
+                        <span asp-validation-for="correo" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="cb-label">Teléfono</label>
+                        <input asp-for="telefono" class="cb-form-control" maxlength="9" placeholder="Ej. 7000-0000" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="cb-label">Rol</label>
+                        <select asp-for="rolid" class="cb-form-control" asp-items="ViewBag.RolSelect">
+                            <option value="">-- Seleccionar rol --</option>
+                        </select>
+                        <span asp-validation-for="rolid" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="cb-label">Estado</label>
+                        <select asp-for="estado" class="cb-form-control">
+                            <option value="Activo">Activo</option>
+                            <option value="Desactivado">Desactivado</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <hr style="border-color: var(--cb-border); margin: 28px 0;">
+
+                <div class="d-flex gap-3">
+                    <button type="submit" class="cb-btn cb-btn-primary">
+                        <i class="bi bi-check-lg"></i> Actualizar Usuario
+                    </button>
+                    <a asp-action="UsuarioIndex" class="cb-btn cb-btn-outline">
+                        Cancelar
+                    </a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    /* Botón Volver - mismo estilo que Nuevo Usuario */
+    .cb-btn-volver {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+        .cb-btn-volver:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-1px);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .cb-btn-volver:active {
+            transform: translateY(0);
+        }
+
+        /* Asegurar que el icono también sea clickeable */
+        .cb-btn-volver i {
+            pointer-events: none;
+        }
+</style>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -18,7 +18,7 @@ namespace Coco_Beach.Controllers
         // GET: usuario
         // GET: Admin
         [AutenticationAttribute.Autenticacion]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> UsuarioIndex()
         {
             var personasConUsuario = await _context.persona
                 .Include(p => p.rol)
@@ -30,7 +30,7 @@ namespace Coco_Beach.Controllers
 
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Create
-        public IActionResult Create()
+        public IActionResult UsuarioCreate()
         {
             ViewBag.RolSelect = new SelectList(_context.rol, "rolid", "nombre");
             return View();
@@ -40,7 +40,7 @@ namespace Coco_Beach.Controllers
         // POST: Admin/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(
+        public async Task<IActionResult> UsuarioCreate(
             [Bind("nombre,apellido,correo,rolid,estado,telefono")] persona persona,
             string password)
         {
@@ -58,7 +58,7 @@ namespace Coco_Beach.Controllers
                 _context.usuario.Add(usuario);
                 await _context.SaveChangesAsync();
 
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction(nameof(UsuarioIndex));
             }
 
             ViewBag.RolSelect = new SelectList(_context.rol, "rolid", "nombre", persona.rolid);
@@ -67,7 +67,7 @@ namespace Coco_Beach.Controllers
 
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Edit/5
-        public async Task<IActionResult> Edit(int? id)
+        public async Task<IActionResult> UsuarioEdit(int? id)
         {
             if (id == null) return NotFound();
 
@@ -84,7 +84,7 @@ namespace Coco_Beach.Controllers
         // POST: Admin/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id,
+        public async Task<IActionResult> UsuarioEdit(int id,
             [Bind("personaid,nombre,apellido,correo,rolid,estado,telefono")] persona persona)
         {
             if (id != persona.personaid) return NotFound();
@@ -104,7 +104,7 @@ namespace Coco_Beach.Controllers
                     throw;
                 }
 
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction(nameof(UsuarioIndex));
             }
 
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
@@ -113,7 +113,7 @@ namespace Coco_Beach.Controllers
 
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> UsuarioDelete(int? id)
         {
             if (id == null) return NotFound();
 
@@ -145,7 +145,7 @@ namespace Coco_Beach.Controllers
             }
 
             await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(UsuarioIndex));
         }
 
         [AutenticationAttribute.Autenticacion]

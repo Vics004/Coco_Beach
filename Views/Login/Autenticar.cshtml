@@ -1,66 +1,330 @@
 ﻿@{
     Layout = "_Layout_Login";
-    ViewData["Title"] = "Iniciar Sesión - Coco Beach";
+    ViewData["Title"] = "Iniciar Sesión - CocoBeach";
 }
 
-<div class="container d-flex justify-content-center align-items-center vh-100">
-    <div class="text-center">
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 
-        <h1 style="color: #ffd700; font-weight: bold; font-size: 4rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);" class="mb-5">
-            🏖️ Coco Beach
-        </h1>
+<style>
+    :root {
+        --cb-primary: #29B6D2;
+        --cb-primary-dark: #1A8FA8;
+        --cb-primary-pale: #E3F6FA;
+        --cb-accent: #F5A623;
+        --cb-text-main: #1A2E35;
+        --cb-text-muted: #6B8C99;
+        --cb-border: #C9E8F0;
+        --cb-danger: #E05C6B;
+        --font-heading: 'Raleway', sans-serif;
+        --font-body: 'Lato', sans-serif;
+    }
 
-        <div class="w-100" style="max-width: 500px;">
-            <div class="p-4 border rounded shadow-lg" style="border-color: #87CEEB; background-color: rgba(255, 255, 255, 0.95);">
-                <h3 class="mb-4" style="color: #2c3e50;">Iniciar Sesión</h3>
-                <h5 class="mb-4" style="color: #666;">Personal autorizado</h5>
+    * {
+        box-sizing: border-box;
+    }
 
-                <form method="post" class="mt-2">
-                    <div class="form-group text-start">
-                        <label for="txtUsuario" class="d-block fw-bold" style="color: #2c3e50;">
-                            <i class="bi bi-envelope"></i> Correo Electrónico
-                        </label>
-                        @Html.TextBox("txtUsuario", "", new
-                            {
-                                @class = "form-control form-control-lg",
-                                style = "border-color: #87CEEB;",
-                                placeholder = "ejemplo@correo.com",
-                                type = "email",
-                                required = "required"
-                            })
-                    </div>
+    body {
+        margin: 0;
+        font-family: var(--font-body);
+        min-height: 100vh;
+        background: linear-gradient(160deg, #0D2F3F 0%, #1A5F7A 50%, #29B6D2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
 
-                    <div class="form-group mt-4 text-start">
-                        <label for="txtClave" class="d-block fw-bold" style="color: #2c3e50;">
-                            <i class="bi bi-lock"></i> Contraseña
-                        </label>
-                        @Html.Password("txtClave", "", new
-                            {
-                                @class = "form-control form-control-lg",
-                                style = "border-color: #87CEEB;",
-                                placeholder = "**********",
-                                required = "required"
-                            })
-                    </div>
+    /* Burbujas decorativas de fondo */
+    .bg-bubble {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.04);
+        pointer-events: none;
+    }
 
-                    <button type="submit"
-                            class="btn btn-lg mt-4"
-                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; border: none; font-weight: bold;">
-                        <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
-                    </button>
-                </form>
+        .bg-bubble:nth-child(1) {
+            width: 400px;
+            height: 400px;
+            top: -100px;
+            right: -100px;
+        }
+
+        .bg-bubble:nth-child(2) {
+            width: 250px;
+            height: 250px;
+            bottom: -60px;
+            left: -60px;
+        }
+
+        .bg-bubble:nth-child(3) {
+            width: 150px;
+            height: 150px;
+            bottom: 30%;
+            right: 10%;
+            background: rgba(255,255,255,0.03);
+        }
+
+    /* Wrapper central */
+    .login-wrapper {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 440px;
+        padding: 20px;
+        margin: 0 auto;
+    }
+
+    /* Brand */
+    .login-brand {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .login-brand-icon {
+        font-size: 48px;
+        line-height: 1;
+        margin-bottom: 12px;
+        display: block;
+    }
+
+    .login-brand-name {
+        font-family: var(--font-heading);
+        font-size: 36px;
+        font-weight: 800;
+        color: #FFFFFF;
+        letter-spacing: -0.5px;
+        line-height: 1;
+    }
+
+        .login-brand-name span {
+            color: var(--cb-accent);
+        }
+
+    .login-brand-sub {
+        font-size: 12px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.55);
+        margin-top: 6px;
+        font-family: var(--font-body);
+    }
+
+    /* Card del formulario */
+    .login-card {
+        background: #FFFFFF;
+        border-radius: 20px;
+        padding: 36px 40px 32px;
+        width: 100%;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+        position: relative;
+        overflow: hidden;
+    }
+
+        /* Barra de acento superior */
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--cb-primary), var(--cb-accent));
+        }
+
+    .login-card-title {
+        font-family: var(--font-heading);
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--cb-text-main);
+        margin-bottom: 4px;
+    }
+
+    .login-card-sub {
+        font-size: 13px;
+        color: var(--cb-text-muted);
+        margin-bottom: 28px;
+    }
+
+    /* Campos */
+    .cb-field {
+        margin-bottom: 20px;
+    }
+
+    .cb-label {
+        font-family: var(--font-heading);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--cb-text-main);
+        display: block;
+        margin-bottom: 7px;
+    }
+
+    .cb-input-wrap {
+        position: relative;
+    }
+
+    .cb-input-icon {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--cb-text-muted);
+        font-size: 16px;
+        pointer-events: none;
+    }
+
+    .cb-form-control {
+        width: 100%;
+        border: 1.5px solid var(--cb-border);
+        border-radius: 10px;
+        padding: 11px 14px 11px 40px;
+        font-size: 14px;
+        font-family: var(--font-body);
+        color: var(--cb-text-main);
+        background: #FAFEFF;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+    }
+
+        .cb-form-control:focus {
+            border-color: var(--cb-primary);
+            box-shadow: 0 0 0 3px rgba(41, 182, 210, 0.15);
+            background: #FFFFFF;
+        }
+
+        .cb-form-control::placeholder {
+            color: #B5CDD4;
+        }
+
+    /* Botón principal */
+    .cb-btn-login {
+        width: 100%;
+        padding: 13px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--cb-primary) 0%, var(--cb-primary-dark) 100%);
+        color: #fff;
+        font-family: var(--font-heading);
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+        letter-spacing: 0.3px;
+    }
+
+        .cb-btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(41, 182, 210, 0.40);
+        }
+
+        .cb-btn-login:active {
+            transform: translateY(0);
+        }
+
+    /* Error */
+    .cb-error {
+        background: #FCE8EA;
+        color: #8B2030;
+        border-left: 4px solid var(--cb-danger);
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 20px;
+    }
+
+    /* Footer note */
+    .login-footer {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 12px;
+        color: rgba(255,255,255,0.40);
+    }
+</style>
+
+<!-- Burbujas de fondo -->
+<div class="bg-bubble"></div>
+<div class="bg-bubble"></div>
+<div class="bg-bubble"></div>
+
+<div class="login-wrapper">
+
+    <!-- Brand -->
+    <div class="login-brand">
+        <span class="login-brand-icon">🌴</span>
+        <div class="login-brand-name">Coco<span>Beach</span></div>
+        <div class="login-brand-sub">Hotel &amp; Rancho</div>
+    </div>
+
+    <!-- Card -->
+    <div class="login-card">
+        <div class="login-card-title">Bienvenido de vuelta</div>
+        <div class="login-card-sub">Acceso exclusivo para personal autorizado</div>
+
+        <form method="post">
+            <div class="cb-field">
+                <label class="cb-label" for="txtUsuario">
+                    Correo Electrónico
+                </label>
+                <div class="cb-input-wrap">
+                    <i class="bi bi-envelope cb-input-icon"></i>
+                    @Html.TextBox("txtUsuario", "", new
+                        {
+                            @class = "cb-form-control",
+                            placeholder = "ejemplo@correo.com",
+                            type = "email",
+                            required = "required",
+                            id = "txtUsuario"
+                        })
+                </div>
             </div>
-        </div>
+
+            <div class="cb-field">
+                <label class="cb-label" for="txtClave">
+                    Contraseña
+                </label>
+                <div class="cb-input-wrap">
+                    <i class="bi bi-lock cb-input-icon"></i>
+                    @Html.Password("txtClave", "", new
+                        {
+                            @class = "cb-form-control",
+                            placeholder = "••••••••••",
+                            required = "required",
+                            id = "txtClave"
+                        })
+                </div>
+            </div>
+
+            <button type="submit" class="cb-btn-login">
+                <i class="bi bi-box-arrow-in-right"></i>
+                Iniciar Sesión
+            </button>
+        </form>
 
         @if (!string.IsNullOrEmpty(ViewData["ErrorMessage"]?.ToString()))
         {
-            <div class="alert alert-danger mt-4 shadow-lg" role="alert" style="max-width: 500px; margin: 0 auto;">
+            <div class="cb-error">
                 <i class="bi bi-exclamation-triangle-fill"></i>
                 @ViewData["ErrorMessage"]
             </div>
         }
     </div>
-</div>
 
-<!-- Bootstrap Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <div class="login-footer">
+        © @DateTime.Now.Year CocoBeach — Sistema de Gestión
+    </div>
+
+</div>

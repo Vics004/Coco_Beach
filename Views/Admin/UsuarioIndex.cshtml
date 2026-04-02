@@ -1,0 +1,132 @@
+﻿@model IEnumerable<persona>
+
+@{
+    ViewData["Title"] = "Gestión de Usuarios";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<div class="container-fluid">
+
+    <!-- Cabecera de página -->
+    <div class="cb-page-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-people-fill cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Administración de accesos y perfiles del sistema</p>
+            </div>
+        </div>
+        <a asp-action="UsuarioCreate" class="cb-btn cb-btn-outline cb-btn-nuevo-usuario">
+            <i class="bi bi-plus-lg"></i> Nuevo Usuario
+        </a>
+    </div>
+
+    <!-- Tabla de usuarios -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 style="font-family:var(--font-heading); font-weight:700; color:var(--cb-text-main); margin:0;">
+                    Usuarios del Sistema
+                </h5>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table cb-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Correo</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Teléfono</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <span style="font-weight:600; color:var(--cb-text-main);">
+                                        @item.nombre @item.apellido
+                                    </span>
+                                </td>
+                                <td style="color:var(--cb-text-muted);">@item.correo</td>
+                                <td>
+                                    @if (item.rolid.HasValue)
+                                    {
+                                        <span class="cb-badge cb-badge-info">@item.rol?.nombre</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="cb-badge cb-badge-muted">Sin rol</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="cb-badge cb-badge-success">@item.estado</span>
+                                </td>
+                                <td style="color:var(--cb-text-muted);">@item.telefono</td>
+                                <td class="text-end">
+                                    <a asp-action="UsuarioEdit" asp-route-id="@item.personaid" class="cb-btn cb-btn-warning btn-sm me-1">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a asp-action="UsuarioDelete" asp-route-id="@item.personaid" class="cb-btn cb-btn-danger btn-sm">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!Model.Any())
+            {
+                <div class="cb-alert cb-alert-info mt-4">
+                    <i class="bi bi-info-circle-fill"></i>
+                    No hay usuarios registrados en el sistema todavía.
+                </div>
+            }
+
+        </div>
+    </div>
+
+</div>
+
+<style>
+    /* Botón Nuevo Usuario */
+    .cb-btn-nuevo-usuario {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+        .cb-btn-nuevo-usuario:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-1px);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .cb-btn-nuevo-usuario:active {
+            transform: translateY(0);
+        }
+
+        /* Asegurar que el icono también sea clickeable */
+        .cb-btn-nuevo-usuario i {
+            pointer-events: none;
+        }
+</style>

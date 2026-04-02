@@ -41,33 +41,38 @@
                     @switch (ViewBag.rol)
                     {
                         case "Administrador":
+							Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle"></i> Tienes acceso completo al sistema.
                             </div>
                             <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                                 <ul class="navbar-nav flex-grow-1">
                                     <li class="nav-item">
-                                        <a class="btn btn-primary" asp-area="" asp-controller="Admin" asp-action="Index">Gestión de Usuarios</a>
+                                        <a class="btn btn-primary" asp-area="" asp-controller="Admin" asp-action="UsuarioIndex">Gestión de Usuarios</a>
                                     </li>
                                 </ul>
                             </div>
                             break;
                         case "Dueño":
+							Layout = "~/Views/Shared/_Layout_Dueño.cshtml";
                             <div class="alert alert-success">
                                 <i class="bi bi-graph-up"></i> Puedes ver reportes y estadísticas.
                             </div>
                             break;
                         case "Gerente de Hotel":
+							Layout = "~/Views/Shared/_Layout_GerenteHotel.cshtml";
                             <div class="alert alert-primary">
                                 <i class="bi bi-building"></i> Gestión de habitaciones y reservas.
                             </div>
                             break;
                         case "Gerente de Rancho":
+							Layout = "~/Views/Shared/_Layout_GerenteRancho.cshtml";
                             <div class="alert alert-warning">
                                 <i class="bi bi-tree"></i> Gestión de cabañas y actividades.
                             </div>
                             break;
                         case "Encargado":
+							Layout = "~/Views/Shared/_Layout_Encargado.cshtml";
                             <div class="alert alert-secondary">
                                 <i class="bi bi-clipboard-check"></i> Gestión de check-ins y check-outs.
                             </div>
