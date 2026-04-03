@@ -153,5 +153,135 @@ namespace Coco_Beach.Controllers
         {
             return _context.persona.Any(e => e.personaid == id);
         }
+
+
+        // ==============================================
+        // GESTIÓN DE RECURSOS (Habitaciones)
+        // ==============================================
+
+        // GET: Admin/RecursoIndex
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> RecursoIndex()
+        {
+            var recursos = await _context.recurso.ToListAsync();
+            return View(recursos);
+        }
+
+        // GET: Admin/RecursoCreate
+        [AutenticationAttribute.Autenticacion]
+        public IActionResult RecursoCreate()
+        {
+            return View();
+        }
+
+        // POST: Admin/RecursoCreate
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RecursoCreate([Bind("nombre,descripcion,capacidad,precio")] recurso recurso)
+        {
+            // Establecemos valores por defecto
+            recurso.libre = true; // Por defecto, una habitación nueva está libre/disponible
+
+            if (ModelState.IsValid)
+            {
+                _context.Add(recurso);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Habitación creada exitosamente.";
+                return RedirectToAction(nameof(RecursoIndex));
+            }
+            return View(recurso);
+        }
+
+        // GET: Admin/RecursoEdit/5
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> RecursoEdit(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var recurso = await _context.recurso.FindAsync(id);
+            if (recurso == null)
+            {
+                return NotFound();
+            }
+            return View(recurso);
+        }
+
+        // POST: Admin/RecursoEdit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RecursoEdit(int id, [Bind("recursoid,nombre,descripcion,capacidad,precio,libre")] recurso recurso)
+        {
+            if (id != recurso.recursoid)
+            {
+                return NotFound();
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    _context.Update(recurso);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Habitación actualizada correctamente.";
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!RecursoExists(recurso.recursoid))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(RecursoIndex));
+            }
+            return View(recurso);
+        }
+
+        // GET: Admin/RecursoDelete/5
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> RecursoDelete(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var recurso = await _context.recurso
+                .FirstOrDefaultAsync(m => m.recursoid == id);
+            if (recurso == null)
+            {
+                return NotFound();
+            }
+
+            return View(recurso);
+        }
+
+        // POST: Admin/RecursoDelete/5
+        [HttpPost, ActionName("RecursoDelete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RecursoDeleteConfirmed(int id)
+        {
+            var recurso = await _context.recurso.FindAsync(id);
+            if (recurso != null)
+            {
+                _context.recurso.Remove(recurso);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Habitación eliminada correctamente.";
+            }
+
+            return RedirectToAction(nameof(RecursoIndex));
+        }
+
+        // Método auxiliar para verificar existencia
+        private bool RecursoExists(int id)
+        {
+            return _context.recurso.Any(e => e.recursoid == id);
+        }
     }
 }
