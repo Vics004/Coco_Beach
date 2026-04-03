@@ -1,22 +1,22 @@
-﻿@model persona
+﻿@model Coco_Beach.Models.recurso
 
 @{
-    ViewData["Title"] = "Eliminar Usuario";
+    ViewData["Title"] = "Eliminar Habitación";
     Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid">
 
-    <!-- Cabecera de página -->
+    <!-- Cabecera de página (estilo peligro/rojo) -->
     <div class="cb-page-header" style="background: linear-gradient(135deg, #C0392B 0%, #96281B 100%);">
         <div class="d-flex align-items-center">
-            <i class="bi bi-person-x-fill cb-page-header-icon"></i>
+            <i class="bi bi-trash-fill cb-page-header-icon"></i>
             <div>
                 <h2>@ViewData["Title"]</h2>
-                <p>Esta acción no se puede deshacer. Verifica los datos antes de continuar.</p>
+                <p>Esta acción eliminará la habitación del sistema. Verifica antes de continuar.</p>
             </div>
         </div>
-        <a asp-action="UsuarioIndex" class="cb-btn cb-btn-volver">
+        <a asp-action="RecursoIndex" class="cb-btn cb-btn-volver">
             <i class="bi bi-arrow-left"></i> Volver
         </a>
     </div>
@@ -28,32 +28,35 @@
             <!-- Alerta de advertencia -->
             <div class="cb-alert cb-alert-danger mb-4">
                 <i class="bi bi-exclamation-triangle-fill" style="font-size:18px;"></i>
-                <span>¿Estás seguro de que deseas eliminar este usuario?</span>
+                <span>¿Estás seguro de que deseas eliminar esta habitación? Esta acción no se puede deshacer.</span>
             </div>
 
-            <!-- Datos del usuario -->
+            <!-- Datos de la habitación -->
             <div style="background: var(--cb-bg); border-radius: 12px; padding: 20px; border: 1px solid var(--cb-border);">
                 <div class="d-flex align-items-center gap-3 mb-3">
-                    <div style="width:48px; height:48px; border-radius:50%; background:var(--cb-primary-pale); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--cb-primary);">
-                        <i class="bi bi-person-fill"></i>
+                    <div style="width:48px; height:48px; border-radius:50%; background:var(--cb-danger); background-color: #FCE8EA; display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--cb-danger);">
+                        <i class="bi bi-door-closed-fill"></i>
                     </div>
                     <div>
                         <div style="font-family:var(--font-heading); font-weight:700; font-size:16px; color:var(--cb-text-main);">
-                            @Model.nombre @Model.apellido
+                            @Model.nombre
                         </div>
-                        <div style="font-size:13px; color:var(--cb-text-muted);">@Model.correo</div>
+                        <div style="font-size:13px; color:var(--cb-text-muted);">Capacidad: @Model.capacidad personas | Precio: $@Model.precio?.ToString("N0")</div>
                     </div>
+                </div>
+                <div style="font-size:13px; color:var(--cb-text-muted); border-top: 1px solid var(--cb-border); padding-top: 12px;">
+                    <strong>Descripción:</strong> @Model.descripcion
                 </div>
             </div>
 
             <!-- Acciones -->
-            <form asp-action="UsuarioDelete" method="post">
-                <input type="hidden" asp-for="personaid" />
+            <form asp-action="RecursoDelete" method="post">
+                <input type="hidden" asp-for="recursoid" />
                 <div class="d-flex gap-3 mt-4">
                     <button type="submit" class="cb-btn cb-btn-danger" style="background-color: var(--cb-danger); color:#fff; border:none;">
-                        <i class="bi bi-trash-fill"></i> Sí, eliminar
+                        <i class="bi bi-trash-fill"></i> Sí, eliminar definitivamente
                     </button>
-                    <a asp-action="UsuarioIndex" class="cb-btn cb-btn-outline">
+                    <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline">
                         Cancelar
                     </a>
                 </div>
@@ -63,8 +66,8 @@
     </div>
 
 </div>
+
 <style>
-    /* Botón Volver - mismo estilo que Nuevo Usuario */
     .cb-btn-volver {
         background: rgba(255, 255, 255, 0.15);
         color: #fff;
@@ -94,7 +97,6 @@
             transform: translateY(0);
         }
 
-        /* Asegurar que el icono también sea clickeable */
         .cb-btn-volver i {
             pointer-events: none;
         }

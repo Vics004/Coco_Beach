@@ -1,0 +1,389 @@
+﻿@{
+    ViewData["Title"] = "Panel de Finanzas";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+
+    // Acceder a los datos dinámicos
+    dynamic model = Model;
+    var resumenHabitaciones = model.ResumenHabitaciones as IEnumerable<dynamic>;
+    var fechaInicio = model.FechaInicio as DateTime? ?? DateTime.Now;
+    var fechaFin = model.FechaFin as DateTime? ?? DateTime.Now;
+    var totalGanancias = model.TotalGanancias as double? ?? 0;
+    var totalReservas = model.TotalReservas as int? ?? 0;
+    var totalHabitaciones = model.TotalHabitacionesConReservas as int? ?? 0;
+}
+
+<!-- Agregar Chart.js para los gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<div class="container-fluid">
+
+    <!-- Cabecera de página -->
+    <div class="cb-page-header" style="background: linear-gradient(135deg, #F5A623 0%, #D4881A 100%);">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-graph-up-arrow cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Análisis financiero de reservas por habitación</p>
+            </div>
+        </div>
+        <a asp-action="RecursoIndex" class="cb-btn cb-btn-volver">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <!-- Filtros de fecha -->
+    <div class="cb-card mb-4">
+        <div class="cb-card-body">
+            <h5 style="font-family:var(--font-heading); font-weight:700; margin-bottom: 20px;">
+                <i class="bi bi-funnel-fill"></i> Filtros de Análisis
+            </h5>
+
+            <form asp-action="Finanzas" method="post" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="cb-label">Fecha de Inicio</label>
+                    <input type="date" name="fechaInicio" value="@fechaInicio.ToString("yyyy-MM-dd")" class="cb-form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="cb-label">Fecha de Fin</label>
+                    <input type="date" name="fechaFin" value="@fechaFin.ToString("yyyy-MM-dd")" class="cb-form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="cb-btn cb-btn-primary w-100">
+                        <i class="bi bi-search"></i> Aplicar Filtro
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i>
+                    Mostrando reservas desde @fechaInicio.ToString("dd/MM/yyyy") hasta @fechaFin.ToString("dd/MM/yyyy")
+                    <br />
+                    <i class="bi bi-check-circle"></i>
+                    Se excluyen reservas con estado "Disponible"
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de resumen (KPI Cards) -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="cb-stat-card">
+                <div class="stat-icon" style="background: #E3F6FA; color: #29B6D2;">
+                    <i class="bi bi-calculator-fill"></i>
+                </div>
+                <div class="stat-value">$@totalGanancias.ToString("N2")</div>
+                <div class="stat-label">Ganancias Totales</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="cb-stat-card">
+                <div class="stat-icon" style="background: #FFF4E0; color: #F5A623;">
+                    <i class="bi bi-calendar-check-fill"></i>
+                </div>
+                <div class="stat-value">@totalReservas</div>
+                <div class="stat-label">Reservas Realizadas</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="cb-stat-card">
+                <div class="stat-icon" style="background: #E3F9F3; color: #2ECC9A;">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div class="stat-value">@totalHabitaciones</div>
+                <div class="stat-label">Habitaciones con Reservas</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla detallada -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 style="font-family:var(--font-heading); font-weight:700; margin:0;">
+                    <i class="bi bi-table"></i> Detalle de Finanzas por Habitación
+                </h5>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table cb-table mb-0" id="tablaFinanzas">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Habitación</th>
+                            <th>Capacidad</th>
+                            <th>Precio/Noche</th>
+                            <th>Total Reservas</th>
+                            <th>Promedio Días</th>
+                            <th>Ganancias Totales</th>
+                            <th>% Contribución</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in resumenHabitaciones)
+                        {
+                            var porcentaje = totalGanancias > 0 ? (item.GananciasTotales / totalGanancias * 100) : 0;
+                            <tr>
+                                <td>@item.recursoid</td>
+                                <td style="font-weight:600; color:var(--cb-text-main);">@item.nombre</td>
+                                <td>@item.capacidad personas</td>
+                                <td>$@item.precio?.ToString("N2")</td>
+                                <td>
+                                    <span class="cb-badge cb-badge-info">@item.TotalReservas</span>
+                                </td>
+                                <td>@item.PromedioDiasEstancia.ToString("F1") días</td>
+                                <td style="color: var(--cb-primary); font-weight:700;">$@item.GananciasTotales.ToString("N2")</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 6px; background-color: var(--cb-border); border-radius: 3px;">
+                                            <div class="progress-bar" style="width: @porcentaje%; background-color: var(--cb-primary); border-radius: 3px;"></div>
+                                        </div>
+                                        <span style="font-size: 12px; font-weight:600;">@porcentaje.ToString("F1")%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!resumenHabitaciones.Any())
+            {
+                <div class="cb-alert cb-alert-info mt-4">
+                    <i class="bi bi-info-circle-fill"></i>
+                    No hay reservas en el rango de fechas seleccionado.
+                </div>
+            }
+        </div>
+    </div>
+
+</div>
+
+    <!-- Gráfico de barras - Ganancias por Habitación -->
+    <div class="cb-card mb-4">
+        <div class="cb-card-body">
+            <h5 style="font-family:var(--font-heading); font-weight:700; margin-bottom: 20px;">
+                <i class="bi bi-bar-chart-steps"></i> Ganancias por Habitación
+            </h5>
+            <canvas id="gananciasChart" style="max-height: 400px; width: 100%;"></canvas>
+        </div>
+    </div>
+
+    <!-- Gráfico de pastel - Distribución de Reservas -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="cb-card">
+                <div class="cb-card-body">
+                    <h5 style="font-family:var(--font-heading); font-weight:700; margin-bottom: 20px;">
+                        <i class="bi bi-pie-chart-fill"></i> Distribución de Reservas
+                    </h5>
+                    <canvas id="reservasChart" style="max-height: 350px; width: 100%;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="cb-card">
+                <div class="cb-card-body">
+                    <h5 style="font-family:var(--font-heading); font-weight:700; margin-bottom: 20px;">
+                        <i class="bi bi-trophy-fill"></i> Top Habitaciones por Ganancias
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table cb-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Habitación</th>
+                                    <th>Ganancias</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var top5 = resumenHabitaciones.Take(5).ToList();
+                                    for (int i = 0; i < top5.Count; i++)
+                                    {
+                                        var item = top5[i];
+                                        <tr>
+                                            <td>
+                                                @if (i == 0)
+                                                {
+                                                    <span class="cb-badge cb-badge-warning">🥇 1</span>
+                                                }
+                                                else if (i == 1)
+                                                {
+                                                    <span class="cb-badge cb-badge-info">🥈 2</span>
+                                                }
+                                                else if (i == 2)
+                                                {
+                                                    <span class="cb-badge cb-badge-success">🥉 3</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@(i + 1)</span>
+                                                }
+                                            </td>
+                                            <td style="font-weight:600;">@item.nombre</td>
+                                            <td style="color: var(--cb-primary); font-weight:700;">$@item.GananciasTotales.ToString("N2")</td>
+                                            <td>@item.TotalReservas</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+
+<style>
+    .cb-btn-volver {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+        .cb-btn-volver:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-1px);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .cb-btn-volver:active {
+            transform: translateY(0);
+        }
+
+        .cb-btn-volver i {
+            pointer-events: none;
+        }
+
+    .progress {
+        background-color: var(--cb-border);
+        border-radius: 3px;
+    }
+
+    .progress-bar {
+        transition: width 0.3s ease;
+    }
+</style>
+
+<script>
+    // Preparar datos para los gráficos
+    const habitaciones = @Html.Raw(Json.Serialize(resumenHabitaciones.Select(r => r.nombre).ToList()));
+    const ganancias = @Html.Raw(Json.Serialize(resumenHabitaciones.Select(r => r.GananciasTotales).ToList()));
+    const reservas = @Html.Raw(Json.Serialize(resumenHabitaciones.Select(r => r.TotalReservas).ToList()));
+
+    // Colores para los gráficos
+    const colores = [
+        '#29B6D2', '#F5A623', '#2ECC9A', '#E05C6B', '#9B59B6',
+        '#3498DB', '#E67E22', '#1ABC9C', '#E74C3C', '#34495E',
+        '#16A085', '#27AE60', '#2980B9', '#8E44AD', '#F39C12'
+    ];
+
+    // Gráfico de barras - Ganancias
+    if (document.getElementById('gananciasChart')) {
+        const ctxGanancias = document.getElementById('gananciasChart').getContext('2d');
+        new Chart(ctxGanancias, {
+            type: 'bar',
+            data: {
+                labels: habitaciones,
+                datasets: [{
+                    label: 'Ganancias ($)',
+                    data: ganancias,
+                    backgroundColor: colores,
+                    borderColor: colores.map(c => c.replace('0.8', '1')),
+                    borderWidth: 1,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return `$${context.raw.toFixed(2)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return '$' + value.toFixed(0);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Gráfico de pastel - Distribución de reservas
+    if (document.getElementById('reservasChart')) {
+        const ctxReservas = document.getElementById('reservasChart').getContext('2d');
+        new Chart(ctxReservas, {
+            type: 'pie',
+            data: {
+                labels: habitaciones,
+                datasets: [{
+                    data: reservas,
+                    backgroundColor: colores,
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} reservas (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,123 @@
+﻿@model Coco_Beach.Models.recurso
+
+@{
+    ViewData["Title"] = "Editar Habitación";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<div class="container-fluid">
+
+    <!-- Cabecera de página -->
+    <div class="cb-page-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-pencil-square cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Modifica la información de la habitación</p>
+            </div>
+        </div>
+        <a asp-action="RecursoIndex" class="cb-btn cb-btn-volver">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <!-- Formulario -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+
+            <form asp-action="RecursoEdit" method="post">
+                <div asp-validation-summary="ModelOnly" class="cb-alert cb-alert-danger mb-4"></div>
+                <input type="hidden" asp-for="recursoid" />
+
+                <div class="row g-4">
+
+                    <div class="col-md-6">
+                        <label asp-for="nombre" class="cb-label">Nombre de la Habitación</label>
+                        <input asp-for="nombre" class="cb-form-control" />
+                        <span asp-validation-for="nombre" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="capacidad" class="cb-label">Capacidad (Personas)</label>
+                        <input asp-for="capacidad" class="cb-form-control" type="number" min="1" />
+                        <span asp-validation-for="capacidad" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="precio" class="cb-label">Precio por Noche ($)</label>
+                        <input asp-for="precio" class="cb-form-control" type="number" step="0.01" min="0" />
+                        <span asp-validation-for="precio" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="libre" class="cb-label">Estado de la Habitación</label>
+                        <select asp-for="libre" class="cb-form-control">
+                            <option value="true">Disponible (Libre)</option>
+                            <option value="false">Ocupada (No disponible)</option>
+                        </select>
+                        <span asp-validation-for="libre" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="descripcion" class="cb-label">Descripción</label>
+                        <textarea asp-for="descripcion" class="cb-form-control" rows="4"></textarea>
+                        <span asp-validation-for="descripcion" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                </div>
+
+                <hr style="border-color: var(--cb-border); margin: 28px 0;">
+
+                <div class="d-flex gap-3">
+                    <button type="submit" class="cb-btn cb-btn-primary">
+                        <i class="bi bi-check-lg"></i> Actualizar Habitación
+                    </button>
+                    <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline">
+                        Cancelar
+                    </a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .cb-btn-volver {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+        .cb-btn-volver:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-1px);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .cb-btn-volver:active {
+            transform: translateY(0);
+        }
+
+        .cb-btn-volver i {
+            pointer-events: none;
+        }
+</style>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
