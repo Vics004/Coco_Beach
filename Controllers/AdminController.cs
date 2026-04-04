@@ -4,13 +4,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using System.Text;
+using System.Text.Json;
+
 namespace Coco_Beach.Controllers
 {
     public class AdminController : Controller
     {
         private readonly Coco_BeachDbContext _context;
 
-        
+
         public AdminController(Coco_BeachDbContext context)
         {
             _context = context;
@@ -387,5 +390,371 @@ namespace Coco_Beach.Controllers
 
             return viewData;
         }
+
+
+
+
+        // ==============================================
+        // CALENDARIO — HOTEL (todos los recursos excepto Rancho)
+        // ==============================================
+
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> CalendarioHotel()
+        {
+            var recursos = await _context.recurso
+                .Where(r => r.recursoid != 15)
+                .OrderBy(r => r.nombre)
+                .ToListAsync();
+
+            return View(recursos);
+        }
+
+        // ==============================================
+        // CALENDARIO — RANCHO (solo recurso ID 15)
+        // ==============================================
+
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> CalendarioRancho()
+        {
+            var recursos = await _context.recurso
+                .Where(r => r.recursoid == 15)
+                .OrderBy(r => r.nombre)
+                .ToListAsync();
+
+            return View("CalendarioHotel", recursos); // Reutiliza la misma vista
+        }
+
+        // ==============================================
+        // AJAX — Obtener reservas en rango de fechas
+        // ==============================================
+
+        [HttpGet]
+        public async Task<IActionResult> GetReservas(DateTime fechaInicio, DateTime fechaFin, string tipo = "hotel")
+        {
+            var fechaInicioUtc = new DateTime(fechaInicio.Year, fechaInicio.Month, fechaInicio.Day, 0, 0, 0, DateTimeKind.Utc);
+            var fechaFinUtc = new DateTime(fechaFin.Year, fechaFin.Month, fechaFin.Day, 23, 59, 59, DateTimeKind.Utc);
+
+            IQueryable<reserva> query = _context.reserva
+                .Where(r => r.fecha_inicio.HasValue && r.fecha_fin.HasValue)
+                .Where(r => r.fecha_inicio.Value <= fechaFinUtc && r.fecha_fin.Value >= fechaInicioUtc);
+
+            if (tipo == "rancho")
+                query = query.Where(r => r.recursoid == 15);
+            else
+                query = query.Where(r => r.recursoid != 15);
+
+            var reservas = await query.ToListAsync();
+
+            // Obtener IDs únicos de clientes
+            var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
+            var clientes = await _context.persona
+                .Where(p => clienteIds.Contains(p.personaid))
+                .ToDictionaryAsync(p => p.personaid);
+
+            var resultado = reservas.Select(r => new
+            {
+                r.reservaid,
+                r.recursoid,
+                r.estadoid,
+                r.preciofinal,
+                fecha_inicio = r.fecha_inicio,
+                fecha_fin = r.fecha_fin,
+                cliente = clientes.ContainsKey(r.clienteid) ? new
+                {
+                    clientes[r.clienteid].personaid,
+                    clientes[r.clienteid].nombre,
+                    clientes[r.clienteid].apellido,
+                    clientes[r.clienteid].correo,
+                    clientes[r.clienteid].telefono
+                } : null
+            });
+
+            return Json(resultado);
+        }
+
+        // ==============================================
+        // AJAX — Buscar clientes por nombre
+        // ==============================================
+
+        [HttpGet]
+        public async Task<IActionResult> BuscarClientes(string q)
+        {
+            if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+                return Json(new List<object>());
+
+            var termino = q.ToLower();
+            var clientes = await _context.persona
+                .Where(p => (p.nombre + " " + p.apellido).ToLower().Contains(termino)
+                         || (p.correo != null && p.correo.ToLower().Contains(termino)))
+                .Take(8)
+                .Select(p => new { p.personaid, p.nombre, p.apellido, p.correo, p.telefono })
+                .ToListAsync();
+
+            return Json(clientes);
+        }
+
+        // ==============================================
+        // AJAX — Crear cliente rápido desde el modal
+        // ==============================================
+
+        [HttpPost]
+        public async Task<IActionResult> CrearClienteRapido([FromBody] PersonaCreateDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.nombre))
+                return BadRequest(new { error = "El nombre es requerido." });
+
+            // Buscar rol "Cliente" — ajusta el rolid según tu BD
+            var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre.ToLower().Contains("cliente"));
+
+            var nuevaPersona = new persona
+            {
+                nombre = dto.nombre,
+                apellido = dto.apellido,
+                correo = dto.correo,
+                telefono = dto.telefono,
+                rolid = rolCliente?.rolid,
+                estado = "Activo"
+            };
+
+            _context.persona.Add(nuevaPersona);
+            await _context.SaveChangesAsync();
+
+            return Json(new
+            {
+                nuevaPersona.personaid,
+                nuevaPersona.nombre,
+                nuevaPersona.apellido,
+                nuevaPersona.correo,
+                nuevaPersona.telefono
+            });
+        }
+
+        // DTO para CrearClienteRapido
+        public class PersonaCreateDto
+        {
+            public string nombre { get; set; } = "";
+            public string? apellido { get; set; }
+            public string? correo { get; set; }
+            public string? telefono { get; set; }
+        }
+
+        // ==============================================
+        // AJAX — Crear reserva desde el calendario
+        // ==============================================
+
+        [HttpPost]
+        public async Task<IActionResult> CrearReservaCalendario([FromBody] ReservaCreateDto dto)
+        {
+            // Validar que los campos requeridos estén presentes
+            if (dto.recursoid <= 0 || dto.clienteid <= 0)
+                return BadRequest(new { error = "Habitación y cliente son requeridos." });
+
+            var inicioUtc = DateTime.SpecifyKind(dto.fecha_inicio, DateTimeKind.Utc);
+            var finUtc = DateTime.SpecifyKind(dto.fecha_fin, DateTimeKind.Utc);
+
+            if (inicioUtc >= finUtc)
+                return BadRequest(new { error = "La fecha de inicio debe ser anterior a la fecha de fin." });
+
+            // Validar traslape
+            var traslape = await _context.reserva
+                .AnyAsync(r => r.recursoid == dto.recursoid
+                            && r.estadoid != 3 // excluir canceladas/disponible
+                            && r.fecha_inicio.HasValue && r.fecha_fin.HasValue
+                            && r.fecha_inicio.Value < finUtc
+                            && r.fecha_fin.Value > inicioUtc);
+
+            if (traslape)
+                return Conflict(new { error = "Ya existe una reserva en ese rango de fechas para esta habitación." });
+
+            // Obtener el empleado logueado desde la sesión
+            int empleadoId = HttpContext.Session.GetInt32("personaId") ?? 0;
+            if (empleadoId == 0)
+                return Unauthorized(new { error = "Sesión no válida. Por favor inicia sesión nuevamente." });
+
+            var nuevaReserva = new reserva
+            {
+                clienteid = dto.clienteid,
+                empleadoid = empleadoId,
+                recursoid = dto.recursoid,
+                estadoid = dto.estadoid > 0 ? dto.estadoid : 1, // 1 = Reservado por defecto
+                fecha_inicio = inicioUtc,
+                fecha_fin = finUtc,
+                fecha_creacion = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(-6), DateTimeKind.Utc),
+                preciofinal = dto.preciofinal
+            };
+
+            _context.reserva.Add(nuevaReserva);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, reservaid = nuevaReserva.reservaid });
+        }
+
+        // DTO para CrearReservaCalendario
+        public class ReservaCreateDto
+        {
+            public int clienteid { get; set; }
+            public int recursoid { get; set; }
+            public int estadoid { get; set; }
+            public DateTime fecha_inicio { get; set; }
+            public DateTime fecha_fin { get; set; }
+            public double? preciofinal { get; set; }
+        }
+
+        // ==============================================
+        // EXPORTAR .ICS — Feed de reservas de una habitación
+        // ==============================================
+
+        [HttpGet]
+        public async Task<IActionResult> ExportarICS(int recursoid)
+        {
+            var recurso = await _context.recurso.FindAsync(recursoid);
+            if (recurso == null) return NotFound();
+
+            var reservas = await _context.reserva
+                .Where(r => r.recursoid == recursoid
+                         && r.estadoid != 3
+                         && r.fecha_inicio.HasValue
+                         && r.fecha_fin.HasValue)
+                .ToListAsync();
+
+            var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
+            var clientes = await _context.persona
+                .Where(p => clienteIds.Contains(p.personaid))
+                .ToDictionaryAsync(p => p.personaid);
+
+            var sb = new StringBuilder();
+            sb.AppendLine("BEGIN:VCALENDAR");
+            sb.AppendLine("VERSION:2.0");
+            sb.AppendLine("PRODID:-//CocoBeach//Calendario//ES");
+            sb.AppendLine("CALSCALE:GREGORIAN");
+            sb.AppendLine("METHOD:PUBLISH");
+            sb.AppendLine($"X-WR-CALNAME:CocoBeach - {recurso.nombre}");
+            sb.AppendLine("X-WR-TIMEZONE:America/El_Salvador");
+
+            foreach (var r in reservas)
+            {
+                var cliente = clientes.ContainsKey(r.clienteid) ? clientes[r.clienteid] : null;
+                var nombreCliente = cliente != null ? $"{cliente.nombre} {cliente.apellido}".Trim() : "Huésped";
+
+                // Para reservas de todo el día usamos formato DATE (YYYYMMDD)
+                // La fecha de fin en iCal para todo-el-día es EXCLUSIVA (el día siguiente)
+                var dtStart = r.fecha_inicio!.Value.ToString("yyyyMMdd");
+                var dtEnd = r.fecha_fin!.Value.AddDays(1).ToString("yyyyMMdd");
+                var uid = $"reserva-{r.reservaid}@cocobeach";
+                var created = (r.fecha_creacion ?? DateTime.UtcNow).ToString("yyyyMMdd'T'HHmmss'Z'");
+
+                sb.AppendLine("BEGIN:VEVENT");
+                sb.AppendLine($"UID:{uid}");
+                sb.AppendLine($"DTSTAMP:{created}");
+                sb.AppendLine($"DTSTART;VALUE=DATE:{dtStart}");
+                sb.AppendLine($"DTEND;VALUE=DATE:{dtEnd}");
+                sb.AppendLine($"SUMMARY:{EscapeICS(nombreCliente)} - {EscapeICS(recurso.nombre ?? "")}");
+                sb.AppendLine($"DESCRIPTION:Reserva #{r.reservaid}. Estado: {r.estadoid}. Precio: ${r.preciofinal:N2}");
+                sb.AppendLine($"LOCATION:{EscapeICS(recurso.nombre ?? "CocoBeach")}");
+                sb.AppendLine("END:VEVENT");
+            }
+
+            sb.AppendLine("END:VCALENDAR");
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            return File(bytes, "text/calendar; charset=utf-8", $"cocobeach-{recurso.nombre?.Replace(" ", "_")}.ics");
+        }
+
+        private static string EscapeICS(string value)
+        {
+            return value
+                .Replace("\\", "\\\\")
+                .Replace(";", "\\;")
+                .Replace(",", "\\,")
+                .Replace("\n", "\\n")
+                .Replace("\r", "");
+        }
+
+        // ==============================================
+        // AJAX — Cambiar estado de una reserva
+        // ==============================================
+
+        [HttpPost]
+        public async Task<IActionResult> CambiarEstadoReserva([FromBody] CambiarEstadoDto dto)
+        {
+            var reserva = await _context.reserva.FindAsync(dto.reservaid);
+            if (reserva == null)
+                return NotFound(new { error = "Reserva no encontrada." });
+
+            // Estados válidos: 1=Reservado, 2=En proceso de reserva, 3=Disponible
+            var estadosPermitidos = new[] { 1, 2, 3 };
+            if (!estadosPermitidos.Contains(dto.estadoid))
+                return BadRequest(new { error = "Estado no válido." });
+
+            reserva.estadoid = dto.estadoid;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, reservaid = reserva.reservaid, estadoid = reserva.estadoid });
+        }
+
+        // DTO para CambiarEstadoReserva
+        public class CambiarEstadoDto
+        {
+            public int reservaid { get; set; }
+            public int estadoid { get; set; }
+        }
+
+        // ==============================================
+        // AJAX — Editar reserva desde el calendario
+        // ==============================================
+
+        [HttpPost]
+        public async Task<IActionResult> EditarReservaCalendario([FromBody] ReservaEditDto dto)
+        {
+            var reserva = await _context.reserva.FindAsync(dto.reservaid);
+            if (reserva == null)
+                return NotFound(new { error = "Reserva no encontrada." });
+
+            if (dto.recursoid <= 0 || dto.clienteid <= 0)
+                return BadRequest(new { error = "Habitación y cliente son requeridos." });
+
+            var inicioUtc = DateTime.SpecifyKind(dto.fecha_inicio, DateTimeKind.Utc);
+            var finUtc = DateTime.SpecifyKind(dto.fecha_fin, DateTimeKind.Utc);
+
+            if (inicioUtc >= finUtc)
+                return BadRequest(new { error = "La fecha de inicio debe ser anterior a la fecha de fin." });
+
+            // Validar traslape excluyendo la reserva que se está editando
+            var traslape = await _context.reserva
+                .AnyAsync(r => r.reservaid != dto.reservaid          // excluir la propia reserva
+                            && r.recursoid == dto.recursoid
+                            && r.estadoid != 3
+                            && r.fecha_inicio.HasValue && r.fecha_fin.HasValue
+                            && r.fecha_inicio.Value < finUtc
+                            && r.fecha_fin.Value > inicioUtc);
+
+            if (traslape)
+                return Conflict(new { error = "Ya existe otra reserva en ese rango de fechas para esta habitación." });
+
+            reserva.clienteid = dto.clienteid;
+            reserva.recursoid = dto.recursoid;
+            reserva.estadoid = dto.estadoid > 0 ? dto.estadoid : reserva.estadoid;
+            reserva.fecha_inicio = inicioUtc;
+            reserva.fecha_fin = finUtc;
+            reserva.preciofinal = dto.preciofinal;
+
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, reservaid = reserva.reservaid });
+        }
+
+        // DTO para EditarReservaCalendario
+        public class ReservaEditDto
+        {
+            public int reservaid { get; set; }
+            public int clienteid { get; set; }
+            public int recursoid { get; set; }
+            public int estadoid { get; set; }
+            public DateTime fecha_inicio { get; set; }
+            public DateTime fecha_fin { get; set; }
+            public double? preciofinal { get; set; }
+        }
+
+
     }
 }
