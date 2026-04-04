@@ -1,0 +1,2719 @@
+﻿@model IEnumerable<Coco_Beach.Models.recurso>
+@{
+    var esRancho = Model.Any() && Model.First().recursoid == 15;
+    var titulo = esRancho ? "Calendario — Rancho" : "Calendario — Hotel";
+    var subtitulo = esRancho ? "Disponibilidad del Rancho" : "Disponibilidad de habitaciones";
+    var tipoCalendario = esRancho ? "rancho" : "hotel";
+    var gradienteHeader = esRancho
+        ? "linear-gradient(135deg, #2ECC9A 0%, #1A8C6E 100%)"
+        : "linear-gradient(135deg, #29B6D2 0%, #1A6FA8 100%)";
+    var iconoHeader = esRancho ? "bi-tree-fill" : "bi-building";
+
+    ViewData["Title"] = titulo;
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<link rel="stylesheet" href="~/css/cocobeach.css" />
+
+<div class="container-fluid px-0">
+
+    <!-- HEADER -->
+    <div class="cb-page-header" style="background: @gradienteHeader; margin-bottom: 0; border-radius: 0;">
+        <div class="d-flex align-items-center gap-3">
+            <i class="bi @iconoHeader cb-page-header-icon"></i>
+            <div>
+                <h2 class="mb-0">@titulo</h2>
+                <p class="mb-0">@subtitulo</p>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="#" class="cb-btn cb-btn-volver" onclick="exportarICS()" title="Exportar calendario .ics">
+                <i class="bi bi-download"></i> Exportar .ics
+            </a>
+            <button class="cb-btn" id="btnAgregarReserva"
+                    style="background:rgba(255,255,255,0.22); color:#fff; border:1.5px solid rgba(255,255,255,0.45); font-weight:700;">
+                <i class="bi bi-plus-lg"></i> Agregar reserva
+            </button>
+        </div>
+    </div>
+
+    <!-- BARRA DE NAVEGACIÓN DEL CALENDARIO -->
+    <div class="cal-nav-bar">
+        <div class="cal-nav-left">
+            <button class="cal-nav-btn" id="btnMesAnterior" title="Mes anterior">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <button class="cal-nav-btn" id="btnMesSiguiente" title="Mes siguiente">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <span class="cal-mes-label" id="mesLabel">Cargando...</span>
+            <button class="cal-nav-btn-today" id="btnHoy">Hoy</button>
+        </div>
+        <div class="cal-nav-right">
+            <div class="cal-search-wrap">
+                <i class="bi bi-search cal-search-icon"></i>
+                <input type="text" class="cal-search-input" id="buscadorHuesped"
+                       placeholder="Buscar huésped..." autocomplete="off" />
+            </div>
+        </div>
+    </div>
+
+    <!-- LEYENDA -->
+    <div class="cal-leyenda">
+        <span class="leyenda-item">
+            <span class="leyenda-dot" style="background:var(--cal-reservado);"></span>
+            Reservado
+        </span>
+        <span class="leyenda-item">
+            <span class="leyenda-dot" style="background:var(--cal-proceso); opacity:0.7;"></span>
+            En proceso
+        </span>
+        <span class="leyenda-item">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:3px;background:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(180,180,200,0.4) 3px,rgba(180,180,200,0.4) 6px);border:1px solid #ccc;"></span>
+            No disponible
+        </span>
+        <span class="leyenda-item">
+            <i class="bi bi-arrow-right-circle-fill" style="color:var(--cb-success);font-size:12px;"></i>
+            Salida hoy (disponible)
+        </span>
+    </div>
+
+    <!-- CUERPO DEL CALENDARIO -->
+    <div class="cal-wrapper">
+        <!-- Columna de recursos (habitaciones) -->
+        <div class="cal-resources-col" id="colRecursos">
+            <div class="cal-resources-header">Habitación</div>
+            @foreach (var r in Model)
+            {
+                <div class="cal-resource-row" data-recursoid="@r.recursoid">
+                    <div class="cal-resource-name">@r.nombre</div>
+                    <div class="cal-resource-meta">
+                        @if (r.capacidad.HasValue)
+                        {
+                            <span><i class="bi bi-people-fill"></i> @r.capacidad</span>
+                        }
+                        @if (r.precio.HasValue)
+                        {
+                            <span>$@r.precio.Value.ToString("N0")/noche</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Zona scrollable de días -->
+        <div class="cal-timeline-wrap" id="timelineWrap">
+            <!-- Header de días (generado por JS) -->
+            <div class="cal-days-header" id="diasHeader"></div>
+
+            <!-- Grid de reservas (generado por JS) -->
+            <div class="cal-grid" id="calGrid"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ========================================
+     POPOVER DE RESERVA
+======================================== -->
+<div class="cal-popover" id="calPopover" style="display:none;">
+    <div class="cal-popover-arrow"></div>
+    <div class="cal-popover-header">
+        <span class="cal-popover-title" id="popHuesped">—</span>
+        <button class="cal-popover-close" id="btnCerrarPopover">&times;</button>
+    </div>
+    <div class="cal-popover-body">
+        <div class="pop-row"><i class="bi bi-telephone-fill"></i><span id="popTelefono">—</span></div>
+        <div class="pop-row"><i class="bi bi-envelope-fill"></i><span id="popCorreo">—</span></div>
+        <div class="pop-row"><i class="bi bi-calendar2-range-fill"></i><span id="popFechas">—</span></div>
+        <div class="pop-row"><i class="bi bi-currency-dollar"></i><span id="popPrecio">—</span></div>
+        <div class="pop-row">
+            <i class="bi bi-tag-fill"></i>
+            <span id="popEstadoBadge" class="cb-badge" style="font-size:10px;"></span>
+        </div>
+    </div>
+
+    <!-- Botones de cambio de estado -->
+    <div class="pop-estado-acciones" id="popEstadoAcciones">
+        <div class="pop-estado-label">Cambiar estado:</div>
+        <div class="pop-estado-btns">
+            <button class="pop-estado-btn estado-btn-2" id="popBtnEnProceso"
+                    data-estadoid="2" title="En proceso">
+                <i class="bi bi-hourglass-split"></i> En proceso
+            </button>
+            <button class="pop-estado-btn estado-btn-1" id="popBtnReservado"
+                    data-estadoid="1" title="Reservado">
+                <i class="bi bi-calendar-check"></i> Reservado
+            </button>
+            <button class="pop-estado-btn estado-btn-3" id="popBtnDisponible"
+                    data-estadoid="3" title="Marcar como Disponible">
+                <i class="bi bi-check2-circle"></i> Disponible
+            </button>
+        </div>
+        <div id="popEstadoFeedback" style="display:none;"></div>
+    </div>
+
+    <div class="cal-popover-footer">
+        <a id="popLinkExportar" href="#" class="cb-btn cb-btn-outline" style="font-size:12px; padding:5px 12px;">
+            <i class="bi bi-download"></i> .ics
+        </a>
+        <button id="btnEditarReservaPopover" class="cb-btn cb-btn-primary" style="font-size:12px; padding:5px 12px;">
+            <i class="bi bi-pencil-fill"></i> Editar
+        </button>
+    </div>
+</div>
+
+<!-- ========================================
+     MODAL: CREAR RESERVA
+======================================== -->
+<div class="modal fade" id="modalCrearReserva" tabindex="-1" aria-labelledby="modalCrearReservaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content cb-modal-content">
+
+            <div class="modal-header cb-modal-header">
+                <h5 class="modal-title" id="modalCrearReservaLabel">
+                    <i class="bi bi-calendar-plus-fill me-2"></i>Nueva Reserva
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <div class="row g-3">
+
+                    <!-- Habitación -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Habitación</label>
+                        <!-- El select se rellena dinámicamente por JS (actualizarOpcionesHabitacion) -->
+                        <select class="cb-form-control" id="modalRecursoid">
+                            @foreach (var r in Model)
+                            {
+                                <option value="@r.recursoid">@r.nombre</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Estado</label>
+                        <select class="cb-form-control" id="modalEstadoid">
+                            <option value="1">Reservado</option>
+                            <option value="2">En proceso</option>
+                        </select>
+                    </div>
+
+                    <!-- Fecha inicio -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Fecha entrada</label>
+                        <input type="date" class="cb-form-control" id="modalFechaInicio" min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <!-- Hora entrada -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Hora entrada</label>
+                        <input type="time" class="cb-form-control" id="modalHoraInicio" value="15:00" />
+                    </div>
+
+                    <!-- Fecha fin -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Fecha salida</label>
+                        <input type="date" class="cb-form-control" id="modalFechaFin" min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <!-- Hora salida -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Hora salida</label>
+                        <input type="time" class="cb-form-control" id="modalHoraSalida" value="13:00" />
+                    </div>
+
+                    <!-- Precio -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Precio final ($)</label>
+                        <input type="number" class="cb-form-control" id="modalPrecio" placeholder="0.00" min="0" step="0.01" />
+                        <div class="modal-precio-info" id="modalPrecioInfo" style="display:none;">
+                            <i class="bi bi-info-circle"></i>
+                            <span id="modalPrecioInfoTexto"></span>
+                        </div>
+                    </div>
+
+                    <!-- BUSCADOR DE CLIENTE -->
+                    <div class="col-12">
+                        <label class="cb-label">Huésped</label>
+                        <div class="cliente-search-wrap">
+                            <div class="cliente-selected" id="clienteSelected" style="display:none;">
+                                <i class="bi bi-person-check-fill"></i>
+                                <span id="clienteSelectedNombre"></span>
+                                <button type="button" class="cliente-clear-btn" id="btnClearCliente">&times;</button>
+                            </div>
+                            <input type="text" class="cb-form-control" id="inputBuscarCliente"
+                                   placeholder="Escribe nombre o correo del huésped..."
+                                   autocomplete="off" />
+                            <div class="cliente-dropdown" id="clienteDropdown" style="display:none;"></div>
+                        </div>
+                        <input type="hidden" id="modalClienteId" value="" />
+                    </div>
+
+                    <!-- FORMULARIO CREAR CLIENTE (oculto por defecto) -->
+                    <div class="col-12" id="seccionCrearCliente" style="display:none;">
+                        <div class="crear-cliente-card">
+                            <div class="crear-cliente-header">
+                                <i class="bi bi-person-plus-fill"></i>
+                                <span>Nuevo cliente</span>
+                                <button type="button" class="crear-cliente-close" id="btnCerrarCrearCliente">&times;</button>
+                            </div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-6">
+                                    <input type="text" class="cb-form-control" id="nuevoNombre" placeholder="Nombre *" />
+                                    <div class="campo-error" id="errNombre" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" class="cb-form-control" id="nuevoApellido" placeholder="Apellido" />
+                                    <div class="campo-error" id="errApellido" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="email" class="cb-form-control" id="nuevoCorreo" placeholder="Correo" />
+                                    <div class="campo-error" id="errCorreo" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="tel" class="cb-form-control" id="nuevoTelefono" placeholder="Teléfono (ej: 12345678)" />
+                                    <div class="campo-error" id="errTelefono" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-12">
+                                    <button type="button" class="cb-btn cb-btn-primary w-100" id="btnGuardarNuevoCliente">
+                                        <i class="bi bi-check-lg"></i> Guardar cliente y continuar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Alerta de error -->
+                <div class="cb-alert cb-alert-danger mt-3" id="alertaError" style="display:none;"></div>
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid var(--cb-border); padding: 16px 24px;">
+                <button type="button" class="cb-btn cb-btn-outline" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="cb-btn cb-btn-primary" id="btnGuardarReserva">
+                    <i class="bi bi-check-lg"></i> Guardar reserva
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ========================================
+     MODAL: EDITAR RESERVA
+======================================== -->
+<div class="modal fade" id="modalEditarReserva" tabindex="-1" aria-labelledby="modalEditarReservaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content cb-modal-content">
+
+            <div class="modal-header cb-modal-header">
+                <h5 class="modal-title" id="modalEditarReservaLabel">
+                    <i class="bi bi-pencil-fill me-2"></i>Editar Reserva
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <div class="row g-3">
+
+                    <!-- Habitación -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Habitación</label>
+                        <select class="cb-form-control" id="editRecursoid">
+                            @foreach (var r in Model)
+                            {
+                                <option value="@r.recursoid">@r.nombre</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Estado</label>
+                        <select class="cb-form-control" id="editEstadoid">
+                            <option value="1">Reservado</option>
+                            <option value="2">En proceso</option>
+                            <option value="3">Disponible</option>
+                        </select>
+                    </div>
+
+                    <!-- Fecha inicio -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Fecha entrada</label>
+                        <input type="date" class="cb-form-control" id="editFechaInicio" />
+                    </div>
+
+                    <!-- Hora entrada -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Hora entrada</label>
+                        <input type="time" class="cb-form-control" id="editHoraInicio" value="15:00" />
+                    </div>
+
+                    <!-- Fecha fin -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Fecha salida</label>
+                        <input type="date" class="cb-form-control" id="editFechaFin" />
+                    </div>
+
+                    <!-- Hora salida -->
+                    <div class="col-md-3">
+                        <label class="cb-label">Hora salida</label>
+                        <input type="time" class="cb-form-control" id="editHoraSalida" value="13:00" />
+                    </div>
+
+                    <!-- Precio -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Precio final ($)</label>
+                        <input type="number" class="cb-form-control" id="editPrecio" placeholder="0.00" min="0" step="0.01" />
+                        <div class="modal-precio-info" id="editPrecioInfo" style="display:none;">
+                            <i class="bi bi-info-circle"></i>
+                            <span id="editPrecioInfoTexto"></span>
+                        </div>
+                    </div>
+
+                    <!-- BUSCADOR DE CLIENTE -->
+                    <div class="col-12">
+                        <label class="cb-label">Huésped</label>
+                        <div class="cliente-search-wrap">
+                            <div class="cliente-selected" id="editClienteSelected" style="display:none;">
+                                <i class="bi bi-person-check-fill"></i>
+                                <span id="editClienteSelectedNombre"></span>
+                                <button type="button" class="cliente-clear-btn" id="btnEditClearCliente">&times;</button>
+                            </div>
+                            <input type="text" class="cb-form-control" id="editInputBuscarCliente"
+                                   placeholder="Escribe nombre o correo del huésped..."
+                                   autocomplete="off" />
+                            <div class="cliente-dropdown" id="editClienteDropdown" style="display:none;"></div>
+                        </div>
+                        <input type="hidden" id="editClienteId" value="" />
+                    </div>
+
+                    <!-- FORMULARIO CREAR CLIENTE (oculto por defecto) -->
+                    <div class="col-12" id="editSeccionCrearCliente" style="display:none;">
+                        <div class="crear-cliente-card">
+                            <div class="crear-cliente-header">
+                                <i class="bi bi-person-plus-fill"></i>
+                                <span>Nuevo cliente</span>
+                                <button type="button" class="crear-cliente-close" id="btnEditCerrarCrearCliente">&times;</button>
+                            </div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-6">
+                                    <input type="text" class="cb-form-control" id="editNuevoNombre" placeholder="Nombre *" />
+                                    <div class="campo-error" id="editErrNombre" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" class="cb-form-control" id="editNuevoApellido" placeholder="Apellido" />
+                                    <div class="campo-error" id="editErrApellido" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="email" class="cb-form-control" id="editNuevoCorreo" placeholder="Correo" />
+                                    <div class="campo-error" id="editErrCorreo" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="tel" class="cb-form-control" id="editNuevoTelefono" placeholder="Teléfono (ej: 12345678)" />
+                                    <div class="campo-error" id="editErrTelefono" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
+                                </div>
+                                <div class="col-12">
+                                    <button type="button" class="cb-btn cb-btn-primary w-100" id="btnEditGuardarNuevoCliente">
+                                        <i class="bi bi-check-lg"></i> Guardar cliente y continuar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Alerta de error -->
+                <div class="cb-alert cb-alert-danger mt-3" id="editAlertaError" style="display:none;"></div>
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid var(--cb-border); padding: 16px 24px;">
+                <button type="button" class="cb-btn cb-btn-outline" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="cb-btn cb-btn-primary" id="btnGuardarEdicion">
+                    <i class="bi bi-check-lg"></i> Guardar cambios
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    /* =========================================
+                       VARIABLES CALENDARIO
+                    ========================================= */
+    :root {
+        --cal-reservado: #29B6D2;
+        --cal-proceso: #F5A623;
+        --cal-activo: #2ECC9A;
+        --cal-pill-h: 36px;
+        --cal-row-h: 64px;
+        --cal-day-w: 44px;
+        --cal-resource-w: 220px;
+        --cal-header-h: 48px;
+    }
+
+    /* =========================================
+                       BARRA DE NAVEGACIÓN
+                    ========================================= */
+    .cal-nav-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 28px;
+        background: var(--cb-surface);
+        border-bottom: 1px solid var(--cb-border);
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        gap: 16px;
+    }
+
+    .cal-nav-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .cal-nav-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1.5px solid var(--cb-border);
+        background: transparent;
+        color: var(--cb-text-main);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        transition: all 0.15s;
+    }
+
+        .cal-nav-btn:hover {
+            background: var(--cb-primary-pale);
+            border-color: var(--cb-primary);
+            color: var(--cb-primary);
+        }
+
+    .cal-nav-btn-today {
+        height: 34px;
+        padding: 0 14px;
+        border-radius: 8px;
+        border: 1.5px solid var(--cb-primary);
+        background: var(--cb-primary-pale);
+        color: var(--cb-primary-dark);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: var(--font-body);
+        transition: all 0.15s;
+    }
+
+        .cal-nav-btn-today:hover {
+            background: var(--cb-primary);
+            color: #fff;
+        }
+
+    .cal-mes-label {
+        font-family: var(--font-heading);
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--cb-text-main);
+        min-width: 200px;
+        text-align: center;
+    }
+
+    .cal-nav-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .cal-search-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .cal-search-icon {
+        position: absolute;
+        left: 12px;
+        color: var(--cb-text-muted);
+        font-size: 14px;
+        pointer-events: none;
+    }
+
+    .cal-search-input {
+        border: 1.5px solid var(--cb-border);
+        border-radius: 20px;
+        padding: 8px 16px 8px 36px;
+        font-size: 13px;
+        font-family: var(--font-body);
+        width: 220px;
+        background: var(--cb-bg);
+        color: var(--cb-text-main);
+        transition: all 0.2s;
+    }
+
+        .cal-search-input:focus {
+            outline: none;
+            border-color: var(--cb-primary);
+            background: var(--cb-white);
+            box-shadow: 0 0 0 3px rgba(41,182,210,0.12);
+        }
+
+    /* =========================================
+                       LEYENDA
+                    ========================================= */
+    .cal-leyenda {
+        display: flex;
+        gap: 20px;
+        padding: 8px 28px;
+        background: var(--cb-bg);
+        border-bottom: 1px solid var(--cb-border);
+    }
+
+    .leyenda-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--cb-text-muted);
+        font-family: var(--font-body);
+    }
+
+    .leyenda-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+
+    /* =========================================
+                       WRAPPER PRINCIPAL
+                    ========================================= */
+    .cal-wrapper {
+        display: flex;
+        height: calc(100vh - 230px);
+        min-height: 400px;
+        overflow: hidden;
+        background: var(--cb-bg);
+    }
+
+    /* =========================================
+                       COLUMNA DE RECURSOS — FIX: sticky header
+                    ========================================= */
+    .cal-resources-col {
+        width: var(--cal-resource-w);
+        flex-shrink: 0;
+        background: var(--cb-surface);
+        border-right: 2px solid var(--cb-border);
+        overflow-y: auto; /* FIX: permite scroll interno sincronizado */
+        overflow-x: hidden;
+        z-index: 10;
+        box-shadow: 3px 0 12px rgba(0,0,0,0.06);
+        /* Ocultar scrollbar visual pero mantener funcionalidad */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+        .cal-resources-col::-webkit-scrollbar {
+            display: none;
+        }
+
+    .cal-resources-header {
+        height: var(--cal-header-h);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-family: var(--font-heading);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--cb-text-muted);
+        background: var(--cb-primary-pale);
+        border-bottom: 1px solid var(--cb-border);
+        /* FIX: se queda fija arriba al hacer scroll vertical */
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+
+    .cal-resource-row {
+        height: var(--cal-row-h);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--cb-border);
+        cursor: default;
+        transition: background 0.15s;
+    }
+
+        .cal-resource-row:hover {
+            background: var(--cb-primary-pale);
+        }
+
+    .cal-resource-name {
+        font-family: var(--font-heading);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--cb-text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .cal-resource-meta {
+        display: flex;
+        gap: 10px;
+        margin-top: 2px;
+        font-size: 11px;
+        color: var(--cb-text-muted);
+    }
+
+        .cal-resource-meta i {
+            font-size: 10px;
+        }
+
+    /* =========================================
+                       ZONA DE TIMELINE
+                    ========================================= */
+    .cal-timeline-wrap {
+        flex: 1;
+        overflow-x: auto;
+        overflow-y: auto;
+        position: relative;
+    }
+
+        .cal-timeline-wrap::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        .cal-timeline-wrap::-webkit-scrollbar-track {
+            background: var(--cb-bg);
+        }
+
+        .cal-timeline-wrap::-webkit-scrollbar-thumb {
+            background: var(--cb-border);
+            border-radius: 4px;
+        }
+
+    /* Header de días */
+    .cal-days-header {
+        display: flex;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: var(--cb-surface);
+        border-bottom: 2px solid var(--cb-border);
+        height: var(--cal-header-h);
+    }
+
+    .cal-day-header-cell {
+        width: var(--cal-day-w);
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px solid var(--cb-border);
+        font-size: 11px;
+        font-family: var(--font-body);
+        color: var(--cb-text-muted);
+        cursor: default;
+        transition: background 0.1s;
+    }
+
+        .cal-day-header-cell.weekend {
+            background: #F7FBFC;
+        }
+
+        .cal-day-header-cell.today {
+            background: var(--cb-primary-pale);
+            color: var(--cb-primary-dark);
+            font-weight: 700;
+        }
+
+        .cal-day-header-cell .day-num {
+            font-size: 15px;
+            font-weight: 700;
+            font-family: var(--font-heading);
+            line-height: 1;
+        }
+
+        .cal-day-header-cell .day-name {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 1px;
+        }
+
+    /* Grid */
+    .cal-grid {
+        position: relative;
+    }
+
+    .cal-grid-row {
+        display: flex;
+        height: var(--cal-row-h);
+        border-bottom: 1px solid var(--cb-border);
+        position: relative;
+    }
+
+    .cal-grid-cell {
+        width: var(--cal-day-w);
+        flex-shrink: 0;
+        border-right: 1px solid rgba(201, 232, 240, 0.5);
+        position: relative;
+        cursor: pointer;
+        transition: background 0.12s;
+    }
+
+        .cal-grid-cell.weekend {
+            background: rgba(247, 251, 252, 0.7);
+        }
+
+        .cal-grid-cell.today-col {
+            background: rgba(41, 182, 210, 0.06);
+        }
+
+        /* Celda bloqueada: habitación ocupada */
+        .cal-grid-cell.cell-bloqueada {
+            background: repeating-linear-gradient( 45deg, transparent, transparent 5px, rgba(180, 180, 200, 0.13) 5px, rgba(180, 180, 200, 0.13) 10px );
+            cursor: not-allowed;
+        }
+
+            .cal-grid-cell.cell-bloqueada:hover {
+                background: repeating-linear-gradient( 45deg, transparent, transparent 5px, rgba(180, 180, 200, 0.20) 5px, rgba(180, 180, 200, 0.20) 10px );
+            }
+
+        /* Celda de checkout: sale hoy, disponible */
+        .cal-grid-cell.cell-checkout {
+            background: linear-gradient( to bottom, rgba(46, 204, 154, 0.08) 0%, transparent 100% );
+        }
+
+        /* Celda de día pasado: no se puede reservar */
+        .cal-grid-cell.cell-pasado {
+            background: repeating-linear-gradient( 45deg, transparent, transparent 5px, rgba(180, 180, 200, 0.13) 5px, rgba(180, 180, 200, 0.13) 10px );
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+            .cal-grid-cell.cell-pasado:hover {
+                background: repeating-linear-gradient( 45deg, transparent, transparent 5px, rgba(180, 180, 200, 0.20) 5px, rgba(180, 180, 200, 0.20) 10px );
+            }
+
+    .cell-checkout-tag {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        font-size: 11px;
+        color: var(--cb-success);
+        opacity: 0.75;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        z-index: 3;
+    }
+
+    .cal-grid-cell.cell-checkout:hover .cell-checkout-tag {
+        opacity: 1;
+    }
+
+    .cal-grid-cell:hover .cell-add-btn {
+        opacity: 1;
+    }
+
+    .cell-add-btn {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--cb-primary);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    /* =========================================
+                       PÍLDORAS DE RESERVA
+                    ========================================= */
+    .cal-pill {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        height: var(--cal-pill-h);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        cursor: pointer;
+        z-index: 5;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        transition: transform 0.15s, box-shadow 0.15s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+        user-select: none;
+    }
+
+        .cal-pill:hover {
+            transform: translateY(calc(-50% - 2px));
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+            z-index: 8;
+        }
+
+        .cal-pill.estado-1 {
+            background: var(--cal-reservado);
+            color: #fff;
+        }
+
+        .cal-pill.estado-2 {
+            background: var(--cal-proceso);
+            color: #fff;
+            opacity: 0.82;
+            background-image: repeating-linear-gradient( 45deg, transparent, transparent 4px, rgba(255,255,255,0.12) 4px, rgba(255,255,255,0.12) 8px );
+        }
+
+        .cal-pill.estado-4 {
+            background: var(--cal-activo);
+            color: #fff;
+        }
+
+        .cal-pill.estado-otro {
+            background: var(--cb-text-muted);
+            color: #fff;
+        }
+
+    .cal-pill-text {
+        font-size: 12px;
+        font-weight: 600;
+        font-family: var(--font-body);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cal-pill.resaltada {
+        outline: 2px solid #fff;
+        outline-offset: 1px;
+        box-shadow: 0 0 0 3px var(--cb-accent), 0 4px 16px rgba(0,0,0,0.2);
+        z-index: 10;
+    }
+
+    /* =========================================
+                       POPOVER
+                    ========================================= */
+    .cal-popover {
+        position: fixed;
+        z-index: 9999;
+        background: var(--cb-surface);
+        border-radius: 14px;
+        border: 1px solid var(--cb-border);
+        box-shadow: 0 16px 48px rgba(0,0,0,0.16);
+        width: 280px;
+        animation: popIn 0.18s ease;
+    }
+
+    @@keyframes popIn {
+        from {
+            opacity: 0;
+            transform: scale(0.92) translateY(-4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .cal-popover-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid var(--cb-border);
+    }
+
+    .cal-popover-title {
+        font-family: var(--font-heading);
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--cb-text-main);
+    }
+
+    .cal-popover-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        color: var(--cb-text-muted);
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+    }
+
+    .cal-popover-body {
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .pop-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--cb-text-main);
+    }
+
+        .pop-row i {
+            color: var(--cb-primary);
+            font-size: 13px;
+            width: 16px;
+            flex-shrink: 0;
+        }
+
+    .cal-popover-footer {
+        padding: 10px 16px 14px;
+        border-top: 1px solid var(--cb-border);
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    /* =========================================
+                       MODAL
+                    ========================================= */
+    .cb-modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+        overflow: hidden;
+    }
+
+    .cb-modal-header {
+        background: linear-gradient(135deg, #29B6D2, #1A6FA8);
+        color: #fff;
+        padding: 20px 24px;
+        border-bottom: none;
+    }
+
+        .cb-modal-header .modal-title {
+            color: #fff;
+            font-family: var(--font-heading);
+        }
+
+    /* =========================================
+                       BUSCADOR DE CLIENTE
+                    ========================================= */
+    .cliente-search-wrap {
+        position: relative;
+    }
+
+    .cliente-selected {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: var(--cb-primary-pale);
+        border: 1.5px solid var(--cb-primary);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--cb-primary-dark);
+    }
+
+        .cliente-selected i {
+            font-size: 16px;
+        }
+
+    .cliente-clear-btn {
+        margin-left: auto;
+        background: none;
+        border: none;
+        font-size: 18px;
+        color: var(--cb-text-muted);
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+    }
+
+    .cliente-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        background: var(--cb-surface);
+        border: 1.5px solid var(--cb-primary);
+        border-radius: 10px;
+        box-shadow: 0 8px 28px rgba(41,182,210,0.15);
+        z-index: 200;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+    .cliente-option {
+        padding: 10px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--cb-border);
+        transition: background 0.12s;
+    }
+
+        .cliente-option:last-child {
+            border-bottom: none;
+        }
+
+        .cliente-option:hover {
+            background: var(--cb-primary-pale);
+        }
+
+        .cliente-option .opt-nombre {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--cb-text-main);
+        }
+
+        .cliente-option .opt-meta {
+            font-size: 11px;
+            color: var(--cb-text-muted);
+            margin-top: 1px;
+        }
+
+    .cliente-option-crear {
+        padding: 10px 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--cb-primary-dark);
+        font-weight: 600;
+        font-size: 13px;
+        background: var(--cb-primary-pale);
+        border-radius: 0 0 8px 8px;
+        transition: background 0.12s;
+    }
+
+        .cliente-option-crear:hover {
+            background: rgba(41,182,210,0.15);
+        }
+
+    /* =========================================
+                       CREAR CLIENTE CARD
+                    ========================================= */
+    .crear-cliente-card {
+        background: #F8FDFF;
+        border: 1.5px solid var(--cb-primary);
+        border-radius: 12px;
+        padding: 16px;
+        animation: slideDown 0.2s ease;
+    }
+
+    @@keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .crear-cliente-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--font-heading);
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--cb-primary-dark);
+        margin-bottom: 4px;
+    }
+
+        .crear-cliente-header i {
+            font-size: 16px;
+        }
+
+    .crear-cliente-close {
+        margin-left: auto;
+        background: none;
+        border: none;
+        font-size: 18px;
+        color: var(--cb-text-muted);
+        cursor: pointer;
+    }
+
+    /* =========================================
+                       INDICADOR DE HOY
+                    ========================================= */
+    .cal-today-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--cb-danger);
+        opacity: 0.6;
+        z-index: 6;
+        pointer-events: none;
+    }
+
+        .cal-today-line::before {
+            content: 'HOY';
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 8px;
+            font-weight: 700;
+            font-family: var(--font-heading);
+            letter-spacing: 0.5px;
+            color: var(--cb-danger);
+            white-space: nowrap;
+        }
+
+        .cal-today-line::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--cb-danger);
+        }
+
+    /* =========================================
+                       BOTONES DE ESTADO EN POPOVER
+                    ========================================= */
+    .pop-estado-acciones {
+        padding: 10px 16px 12px;
+        border-top: 1px solid var(--cb-border);
+    }
+
+    .pop-estado-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--cb-text-muted);
+        margin-bottom: 8px;
+    }
+
+    .pop-estado-btns {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .pop-estado-btn {
+        flex: 1;
+        min-width: 0;
+        padding: 6px 8px;
+        border-radius: 7px;
+        border: 1.5px solid transparent;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: var(--font-body);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+
+        .pop-estado-btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+            transform: none !important;
+        }
+
+        .pop-estado-btn.activo {
+            opacity: 0.4;
+            cursor: default;
+            pointer-events: none;
+        }
+
+    .estado-btn-2 {
+        background: #FFF4E0;
+        color: #A36B00;
+        border-color: #F5A623;
+    }
+
+        .estado-btn-2:hover:not(:disabled):not(.activo) {
+            background: #F5A623;
+            color: #fff;
+        }
+
+    .estado-btn-1 {
+        background: var(--cb-primary-pale);
+        color: var(--cb-primary-dark);
+        border-color: var(--cb-primary);
+    }
+
+        .estado-btn-1:hover:not(:disabled):not(.activo) {
+            background: var(--cb-primary);
+            color: #fff;
+        }
+
+    .estado-btn-3 {
+        background: #E3F9F3;
+        color: #1A8C6E;
+        border-color: #2ECC9A;
+    }
+
+        .estado-btn-3:hover:not(:disabled):not(.activo) {
+            background: #2ECC9A;
+            color: #fff;
+        }
+
+    #popEstadoFeedback {
+        margin-top: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--cb-success);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* =========================================
+                       INFO DE PRECIO EN MODAL
+                    ========================================= */
+    .modal-precio-info {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--cb-primary-dark);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: 600;
+        background: var(--cb-primary-pale);
+        padding: 5px 10px;
+        border-radius: 6px;
+    }
+
+        .modal-precio-info i {
+            font-size: 12px;
+        }
+
+    /* =========================================
+                       OPCIÓN OCUPADA EN SELECT — FIX
+                    ========================================= */
+    option.opt-bloqueada,
+    option:disabled {
+        color: #999;
+    }
+</style>
+
+<script>
+    // =========================================
+    // DATOS DEL SERVIDOR
+    // =========================================
+    const TIPO_CAL = '@tipoCalendario';
+    const RECURSOS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                                                                                                                                Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad })
+                                                                ));
+
+    // =========================================
+    // ESTADO GLOBAL
+    // =========================================
+    let mesActual = new Date();
+    mesActual.setDate(1);
+    let todasLasReservas = [];
+    let reservasFiltradas = [];
+    let clienteSeleccionado = null;
+    let searchTimeout = null;
+
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const DIAS_CORTO = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+    // =========================================
+    // INICIALIZACIÓN
+    // =========================================
+    document.addEventListener('DOMContentLoaded', () => {
+        renderCalendario();
+        cargarReservas();
+        bindEventos();
+    });
+
+    // =========================================
+    // RENDER PRINCIPAL
+    // =========================================
+    function renderCalendario() {
+        const año = mesActual.getFullYear();
+        const mes = mesActual.getMonth();
+        const diasEnMes = new Date(año, mes + 1, 0).getDate();
+        const hoy = new Date();
+
+        document.getElementById('mesLabel').textContent =
+            `${MESES[mes]} ${año}`;
+
+        // --- Header de días ---
+        const diasHeader = document.getElementById('diasHeader');
+        diasHeader.innerHTML = '';
+        for (let d = 1; d <= diasEnMes; d++) {
+            const fecha = new Date(año, mes, d);
+            const esFinde = fecha.getDay() === 0 || fecha.getDay() === 6;
+            const esHoy = fecha.toDateString() === hoy.toDateString();
+            const cell = document.createElement('div');
+            cell.className = 'cal-day-header-cell' +
+                (esFinde ? ' weekend' : '') +
+                (esHoy ? ' today' : '');
+            cell.innerHTML = `<span class="day-num">${d}</span>
+                              <span class="day-name">${DIAS_CORTO[fecha.getDay()]}</span>`;
+            diasHeader.appendChild(cell);
+        }
+
+        // --- Grid de filas ---
+        const grid = document.getElementById('calGrid');
+        grid.innerHTML = '';
+
+        // Ancho total = dias * dayWidth
+        const totalW = diasEnMes * 44;
+        grid.style.width = totalW + 'px';
+
+        // Línea de hoy
+        if (hoy.getFullYear() === año && hoy.getMonth() === mes) {
+            const todayLine = document.createElement('div');
+            todayLine.className = 'cal-today-line';
+            todayLine.style.left = ((hoy.getDate() - 1) * 44 + 22) + 'px';
+            grid.appendChild(todayLine);
+        }
+
+        RECURSOS.forEach(recurso => {
+            const row = document.createElement('div');
+            row.className = 'cal-grid-row';
+            row.dataset.recursoid = recurso.recursoid;
+
+            for (let d = 1; d <= diasEnMes; d++) {
+                const fecha = new Date(año, mes, d);
+                const esFinde = fecha.getDay() === 0 || fecha.getDay() === 6;
+                const esHoy = fecha.toDateString() === hoy.toDateString();
+                const esPasado = fecha < new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
+                // Calcular disponibilidad de esta celda
+                const disp = calcularDisponibilidadCelda(recurso.recursoid, fecha);
+
+                const cell = document.createElement('div');
+                let clases = 'cal-grid-cell';
+                if (esFinde)               clases += ' weekend';
+                if (esHoy)                 clases += ' today-col';
+                if (esPasado)              clases += ' cell-pasado';
+                else if (disp === 'bloqueado')  clases += ' cell-bloqueada';
+                else if (disp === 'checkout')   clases += ' cell-checkout';
+                cell.className = clases;
+                cell.dataset.fecha = formatDate(fecha);
+                cell.dataset.recursoid = recurso.recursoid;
+                cell.dataset.disp = disp;
+
+                if (esPasado) {
+                    cell.title = 'No se pueden crear reservas en fechas pasadas';
+                } else if (disp === 'bloqueado') {
+                    cell.title = 'Habitación ocupada este día';
+                } else {
+                    // Libre o checkout: se puede reservar
+                    const addBtn = document.createElement('div');
+                    addBtn.className = 'cell-add-btn';
+                    addBtn.innerHTML = '+';
+                    cell.appendChild(addBtn);
+
+                    if (disp === 'checkout') {
+                        const tag = document.createElement('div');
+                        tag.className = 'cell-checkout-tag';
+                        tag.title = 'Salida hoy — disponible desde las 3pm';
+                        tag.innerHTML = '<i class="bi bi-arrow-right-circle-fill"></i>';
+                        cell.appendChild(tag);
+                    }
+
+                    cell.addEventListener('click', () => {
+                        abrirModalCrear(recurso.recursoid, formatDate(fecha));
+                    });
+                }
+
+                row.appendChild(cell);
+            }
+
+            grid.appendChild(row);
+        });
+
+        // Sincronizar scroll vertical entre recursos y grid
+        sincronizarScroll();
+    }
+
+    // =========================================
+    // FIX: Sincronización bidireccional de scroll
+    // =========================================
+    function sincronizarScroll() {
+        const wrap = document.getElementById('timelineWrap');
+        const recursos = document.getElementById('colRecursos');
+
+        let syncingFromWrap = false;
+        let syncingFromRecursos = false;
+
+        wrap.addEventListener('scroll', () => {
+            if (syncingFromWrap) return;
+            syncingFromRecursos = true;
+            recursos.scrollTop = wrap.scrollTop;
+            syncingFromRecursos = false;
+        });
+
+        recursos.addEventListener('scroll', () => {
+            if (syncingFromRecursos) return;
+            syncingFromWrap = true;
+            wrap.scrollTop = recursos.scrollTop;
+            syncingFromWrap = false;
+        });
+    }
+
+    // =========================================
+    // DISPONIBILIDAD POR CELDA
+    // =========================================
+    // Devuelve: 'libre' | 'bloqueado' | 'checkout'
+    // - bloqueado: hay una reserva activa que ocupa ese día (sin ser su último día)
+    // - checkout:  ese día es SOLO día de fin de una reserva (sale, entra otra posible)
+    // - libre:     sin reservas
+    function calcularDisponibilidadCelda(recursoid, fecha) {
+        const reservasRecurso = todasLasReservas.filter(r =>
+            r.recursoid === recursoid && r.estadoid !== 3
+        );
+
+        const fechaStr = formatDate(fecha); // 'YYYY-MM-DD'
+
+        let esBloqueado = false;
+        let esCheckout = false;
+
+        for (const r of reservasRecurso) {
+            const ini = new Date(r.fecha_inicio);
+            const fin = new Date(r.fecha_fin);
+
+            // Día de inicio de esta reserva (YYYY-MM-DD, ignorando hora)
+            const iniStr = formatDate(ini);
+            // Día de fin de esta reserva
+            const finStr = formatDate(fin);
+
+            if (fechaStr === finStr) {
+                // Este día es checkout de esta reserva → disponible desde las 3pm
+                esCheckout = true;
+                // No es bloqueado por esta reserva (la persona ya se fue)
+                continue;
+            }
+
+            if (fechaStr > iniStr && fechaStr < finStr) {
+                // Día intermedio: completamente ocupado
+                esBloqueado = true;
+                break;
+            }
+
+            if (fechaStr === iniStr) {
+                // Día de check-in: ocupado desde las 3pm
+                // Si otro huésped hace checkout hoy, hay ventana posible,
+                // pero este día ya tiene check-in así que bloqueamos
+                esBloqueado = true;
+                break;
+            }
+        }
+
+        if (esBloqueado) return 'bloqueado';
+        if (esCheckout)  return 'checkout';
+        return 'libre';
+    }
+
+    // Re-aplicar disponibilidad en el grid tras cargar reservas
+    function aplicarDisponibilidadEnGrid() {
+        const año = mesActual.getFullYear();
+        const mes = mesActual.getMonth();
+        const diasEnMes = new Date(año, mes + 1, 0).getDate();
+
+        RECURSOS.forEach(recurso => {
+            for (let d = 1; d <= diasEnMes; d++) {
+                const fecha = new Date(año, mes, d);
+                const fechaStr = formatDate(fecha);
+                const cell = document.querySelector(
+                    `.cal-grid-row[data-recursoid="${recurso.recursoid}"] .cal-grid-cell[data-fecha="${fechaStr}"]`
+                );
+                if (!cell) continue;
+
+                const hoyMidnight = new Date();
+                hoyMidnight.setHours(0, 0, 0, 0);
+                const esPasado = fecha < hoyMidnight;
+
+                const disp = calcularDisponibilidadCelda(recurso.recursoid, fecha);
+                cell.dataset.disp = disp;
+
+                // Limpiar clases de disponibilidad previas
+                cell.classList.remove('cell-bloqueada', 'cell-checkout', 'cell-pasado');
+
+                // Limpiar listeners y elementos internos dinámicos
+                const viejoAddBtn = cell.querySelector('.cell-add-btn');
+                const viejoTag = cell.querySelector('.cell-checkout-tag');
+                if (viejoAddBtn) viejoAddBtn.remove();
+                if (viejoTag) viejoTag.remove();
+
+                // Clonar para eliminar event listeners anteriores
+                const nuevoCell = cell.cloneNode(false);
+                nuevoCell.dataset.fecha = fechaStr;
+                nuevoCell.dataset.recursoid = recurso.recursoid;
+                nuevoCell.dataset.disp = disp;
+
+                if (esPasado) {
+                    nuevoCell.classList.add('cell-pasado');
+                    nuevoCell.title = 'No se pueden crear reservas en fechas pasadas';
+                } else if (disp === 'bloqueado') {
+                    nuevoCell.classList.add('cell-bloqueada');
+                    nuevoCell.title = 'Habitación ocupada este día';
+                } else {
+                    const addBtn = document.createElement('div');
+                    addBtn.className = 'cell-add-btn';
+                    addBtn.innerHTML = '+';
+                    nuevoCell.appendChild(addBtn);
+
+                    if (disp === 'checkout') {
+                        nuevoCell.classList.add('cell-checkout');
+                        const tag = document.createElement('div');
+                        tag.className = 'cell-checkout-tag';
+                        tag.title = 'Salida hoy — disponible desde las 3pm';
+                        tag.innerHTML = '<i class="bi bi-arrow-right-circle-fill"></i>';
+                        nuevoCell.appendChild(tag);
+                    }
+
+                    nuevoCell.addEventListener('click', () => {
+                        abrirModalCrear(recurso.recursoid, fechaStr);
+                    });
+                }
+
+                cell.replaceWith(nuevoCell);
+            }
+        });
+    }
+
+    // =========================================
+    // CARGAR RESERVAS (AJAX)
+    // =========================================
+    async function cargarReservas() {
+        const año = mesActual.getFullYear();
+        const mes = mesActual.getMonth();
+        const diasEnMes = new Date(año, mes + 1, 0).getDate();
+        const inicio = formatDate(new Date(año, mes, 1));
+        const fin = formatDate(new Date(año, mes, diasEnMes));
+
+        try {
+            const resp = await fetch(`/Admin/GetReservas?fechaInicio=${inicio}&fechaFin=${fin}&tipo=${TIPO_CAL}`);
+            todasLasReservas = await resp.json();
+
+            // AUTO-DISPONIBLE: Si fecha_fin ya pasó la hora de checkout (1:00 PM),
+            // marcar automáticamente como Disponible (estadoid=3) en el servidor.
+            const ahora = new Date();
+            const vencidas = todasLasReservas.filter(r => {
+                if (r.estadoid === 3) return false; // ya está disponible
+                if (!r.fecha_fin) return false;
+                const fin = new Date(r.fecha_fin);
+                // Hora de checkout fija: 13:00 (1pm). Usar la fecha de fin pero forzar 13:00 hora local
+                const checkout = new Date(fin);
+                checkout.setHours(13, 0, 0, 0);
+                return ahora >= checkout;
+            });
+
+            // Enviar cambios de estado al servidor en paralelo (sin bloquear el render)
+            if (vencidas.length > 0) {
+                vencidas.forEach(r => {
+                    r.estadoid = 3; // actualizar local inmediatamente
+                    fetch('/Admin/CambiarEstadoReserva', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reservaid: r.reservaid, estadoid: 3 })
+                    }).catch(() => {}); // silenciar errores de red, el render no depende de esto
+                });
+            }
+
+            reservasFiltradas = todasLasReservas;
+            renderPildoras(todasLasReservas);
+            aplicarDisponibilidadEnGrid();
+        } catch (e) {
+            console.error('Error cargando reservas:', e);
+        }
+    }
+
+    // =========================================
+    // RENDER PÍLDORAS
+    // =========================================
+    function renderPildoras(reservas) {
+        // Limpiar píldoras anteriores
+        document.querySelectorAll('.cal-pill').forEach(p => p.remove());
+
+        const año = mesActual.getFullYear();
+        const mes = mesActual.getMonth();
+        const diasEnMes = new Date(año, mes + 1, 0).getDate();
+        const primero = new Date(año, mes, 1);
+        const ultimo = new Date(año, mes, diasEnMes, 23, 59, 59);
+
+        // Agrupar por fila para detectar superposiciones y apilar verticalmente
+        // rowSlots: { recursoid -> lista de {diaIni, diaFin} ya ocupados por píldora }
+        const rowSlots = {};
+
+        reservas.forEach(r => {
+            const row = document.querySelector(`.cal-grid-row[data-recursoid="${r.recursoid}"]`);
+            if (!row) return;
+
+            let inicio = new Date(r.fecha_inicio);
+            let fin = new Date(r.fecha_fin);
+
+            // Clamp al mes visible
+            const iniVis = inicio < primero ? primero : inicio;
+            const finVis = fin > ultimo ? ultimo : fin;
+
+            const diaIni = iniVis.getDate();
+            const diaFin = finVis.getDate();
+            const duracion = diaFin - diaIni + 1;
+
+            if (duracion <= 0) return;
+
+            // Determinar en qué "carril" vertical colocar esta píldora
+            // para evitar superposición con otras de la misma fila
+            if (!rowSlots[r.recursoid]) rowSlots[r.recursoid] = [];
+            const slots = rowSlots[r.recursoid];
+
+            // Buscar el primer carril donde no haya solapamiento
+            let carril = 0;
+            let encontrado = false;
+            while (!encontrado) {
+                const ocupado = slots.some(s => s.carril === carril && s.diaIni <= diaFin && s.diaFin >= diaIni);
+                if (!ocupado) {
+                    encontrado = true;
+                } else {
+                    carril++;
+                }
+            }
+            slots.push({ diaIni, diaFin, carril });
+
+            // Altura de la píldora y espaciado por carril
+            const pillH = 28;
+            const pillGap = 4;
+            const rowH = 64; // --cal-row-h
+            // Centrar el grupo de carriles verticalmente dentro de la fila
+            // Para carril 0 con un solo elemento: centrado (top 50%)
+            // Para múltiples carriles: apilados desde arriba con padding
+            const totalCarriles = Math.max(...slots.map(s => s.carril)) + 1;
+            const totalAltoPills = totalCarriles * pillH + (totalCarriles - 1) * pillGap;
+            const offsetBase = (rowH - totalAltoPills) / 2;
+            const topPx = offsetBase + carril * (pillH + pillGap);
+
+            const pill = document.createElement('div');
+            const estadoClass = [1,2].includes(r.estadoid)
+                ? `estado-${r.estadoid}` : 'estado-otro';
+            pill.className = `cal-pill ${estadoClass}`;
+            pill.style.left = ((diaIni - 1) * 44 + 3) + 'px';
+            pill.style.width = (duracion * 44 - 6) + 'px';
+            pill.style.top = topPx + 'px';
+            pill.style.transform = 'none'; // override el translateY(-50%) del CSS
+            pill.style.height = pillH + 'px';
+
+            const nombre = r.cliente
+                ? `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim()
+                : `Reserva #${r.reservaid}`;
+
+            pill.innerHTML = `<span class="cal-pill-text">${nombre}</span>`;
+            pill.dataset.reservaid = r.reservaid;
+
+            pill.addEventListener('click', (e) => {
+                e.stopPropagation();
+                mostrarPopover(r, pill);
+            });
+
+            row.appendChild(pill);
+        });
+    }
+
+    // =========================================
+    // POPOVER
+    // =========================================
+    let reservaActualEnPopover = null;
+
+    function mostrarPopover(r, pillEl) {
+        reservaActualEnPopover = r;
+        const popover = document.getElementById('calPopover');
+        const nombre = r.cliente
+            ? `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim()
+            : '—';
+
+        document.getElementById('popHuesped').textContent = nombre || '—';
+        document.getElementById('popTelefono').textContent = r.cliente?.telefono || '—';
+        document.getElementById('popCorreo').textContent = r.cliente?.correo || '—';
+
+        const fi = new Date(r.fecha_inicio).toLocaleDateString('es-SV');
+        const ff = new Date(r.fecha_fin).toLocaleDateString('es-SV');
+        document.getElementById('popFechas').textContent = `${fi} → ${ff}`;
+        document.getElementById('popPrecio').textContent =
+            r.preciofinal != null ? `$${Number(r.preciofinal).toFixed(2)}` : '—';
+
+        const estados = {1:'Reservado', 2:'En proceso de reserva', 3:'Disponible'};
+
+        // Badge de estado
+        const badge = document.getElementById('popEstadoBadge');
+        const coloresBadge = {
+            1: 'background:var(--cb-primary-pale);color:var(--cb-primary-dark)',
+            2: 'background:#FFF4E0;color:#A36B00',
+            3: 'background:#E3F9F3;color:#1A8C6E'
+        };
+        badge.style.cssText = coloresBadge[r.estadoid] ?? 'background:#EEF2F4;color:#5A7280';
+        badge.textContent = estados[r.estadoid] ?? '—';
+
+        // Marcar botón activo del estado actual
+        document.querySelectorAll('.pop-estado-btn').forEach(btn => {
+            const bid = parseInt(btn.dataset.estadoid);
+            btn.classList.toggle('activo', bid === r.estadoid);
+        });
+
+        // Limpiar feedback previo
+        const fb = document.getElementById('popEstadoFeedback');
+        fb.style.display = 'none';
+        fb.textContent = '';
+
+        document.getElementById('popLinkExportar').href =
+            `/Admin/ExportarICS/${r.recursoid}`;
+
+        // Posicionar
+        popover.style.display = 'block';
+        const rect = pillEl.getBoundingClientRect();
+        let top = rect.bottom + 8;
+        let left = rect.left;
+
+        const pw = 280;
+        if (left + pw > window.innerWidth - 16) left = window.innerWidth - pw - 16;
+        if (top + 300 > window.innerHeight) top = rect.top - 310;
+
+        popover.style.top = top + 'px';
+        popover.style.left = left + 'px';
+    }
+
+    // Cambio de estado desde popover
+    document.querySelectorAll('.pop-estado-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!reservaActualEnPopover) return;
+            const nuevoEstado = parseInt(btn.dataset.estadoid);
+            if (nuevoEstado === reservaActualEnPopover.estadoid) return;
+
+            btn.disabled = true;
+            const fb = document.getElementById('popEstadoFeedback');
+
+            try {
+                const resp = await fetch('/Admin/CambiarEstadoReserva', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reservaid: reservaActualEnPopover.reservaid, estadoid: nuevoEstado })
+                });
+
+                if (resp.ok) {
+                    // Actualizar objeto local
+                    reservaActualEnPopover.estadoid = nuevoEstado;
+
+                    // Actualizar badge y estado en el popover
+                    const estados = {1:'Reservado', 2:'En proceso de reserva', 3:'Disponible'};
+
+                    const coloresBadge = {
+                        1: 'background:var(--cb-primary-pale);color:var(--cb-primary-dark)',
+                        2: 'background:#FFF4E0;color:#A36B00',
+                        3: 'background:#E3F9F3;color:#1A8C6E'
+                    };
+                    const badge = document.getElementById('popEstadoBadge');
+                    badge.style.cssText = coloresBadge[nuevoEstado] ?? '';
+                    badge.textContent = estados[nuevoEstado];
+
+                    // Marcar nuevo activo
+                    document.querySelectorAll('.pop-estado-btn').forEach(b => {
+                        b.classList.toggle('activo', parseInt(b.dataset.estadoid) === nuevoEstado);
+                    });
+
+                    // Feedback visual
+                    fb.innerHTML = `<i class="bi bi-check-circle-fill"></i> Estado actualizado`;
+                    fb.style.display = 'flex';
+                    setTimeout(() => { fb.style.display = 'none'; }, 2500);
+
+                    // Re-render píldoras para que cambie el color
+                    await cargarReservas();
+                } else {
+                    const err = await resp.json();
+                    fb.innerHTML = `<i class="bi bi-exclamation-triangle-fill" style="color:var(--cb-danger)"></i> <span style="color:var(--cb-danger)">${err.error ?? 'Error'}</span>`;
+                    fb.style.display = 'flex';
+                }
+            } catch (e) {
+                fb.innerHTML = `<i class="bi bi-exclamation-triangle-fill" style="color:var(--cb-danger)"></i> <span style="color:var(--cb-danger)">Error de conexión</span>`;
+                fb.style.display = 'flex';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+
+    document.getElementById('btnCerrarPopover').addEventListener('click', () => {
+        document.getElementById('calPopover').style.display = 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+        const popover = document.getElementById('calPopover');
+        if (!popover.contains(e.target) && !e.target.classList.contains('cal-pill')) {
+            popover.style.display = 'none';
+        }
+    });
+
+    // =========================================
+    // MODAL CREAR RESERVA
+    // =========================================
+    function getPrecioRecurso(recursoid) {
+        const r = RECURSOS.find(r => r.recursoid === parseInt(recursoid));
+        return r?.precio ?? 0;
+    }
+
+    function calcularPrecio() {
+        const fi = document.getElementById('modalFechaInicio').value;
+        const ff = document.getElementById('modalFechaFin').value;
+        const recursoid = document.getElementById('modalRecursoid').value;
+        const infoEl = document.getElementById('modalPrecioInfo');
+        const infoTexto = document.getElementById('modalPrecioInfoTexto');
+        const precioInput = document.getElementById('modalPrecio');
+
+        if (!fi || !ff) { infoEl.style.display = 'none'; return; }
+
+        const inicio = new Date(fi);
+        const fin = new Date(ff);
+        const dias = Math.round((fin - inicio) / (1000 * 60 * 60 * 24));
+
+        if (dias <= 0) { infoEl.style.display = 'none'; return; }
+
+        const precioPorNoche = getPrecioRecurso(recursoid);
+        const total = dias * precioPorNoche;
+
+        infoTexto.textContent = `${dias} ${dias === 1 ? 'día' : 'días'} × $${precioPorNoche.toFixed(2)}/noche = $${total.toFixed(2)}`;
+        infoEl.style.display = 'flex';
+
+        // Solo sobreescribir si el usuario no ha tocado el campo manualmente
+        if (!precioInput.dataset.editadoManual) {
+            precioInput.value = total.toFixed(2);
+        }
+    }
+
+    // =========================================
+    // FIX: Actualizar opciones del select con indicadores de ocupación
+    // =========================================
+    function actualizarOpcionesHabitacion(fechaStr) {
+        const select = document.getElementById('modalRecursoid');
+        const valorActual = select.value;
+
+        select.innerHTML = '';
+
+        RECURSOS.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.recursoid;
+
+            // Verificar si tiene check-in EN esta fecha exacta
+            const tieneCheckin = todasLasReservas.some(res =>
+                res.recursoid === r.recursoid &&
+                res.estadoid !== 3 &&
+                formatDate(new Date(res.fecha_inicio)) === fechaStr
+            );
+
+            // Verificar disponibilidad general (bloqueado = día intermedio u otro check-in)
+            const fecha = new Date(fechaStr + 'T00:00:00');
+            const disp = calcularDisponibilidadCelda(r.recursoid, fecha);
+            const esBloqueada = disp === 'bloqueado';
+
+            if (tieneCheckin) {
+                opt.textContent = `${r.nombre} — Ocupada`;
+                opt.style.color = '#999';
+                opt.disabled = true;
+                opt.className = 'opt-bloqueada';
+            } else if (esBloqueada) {
+                opt.textContent = `${r.nombre} — Ocupada`;
+                opt.style.color = '#999';
+                opt.disabled = true;
+                opt.className = 'opt-bloqueada';
+            } else {
+                opt.textContent = r.nombre;
+            }
+
+            select.appendChild(opt);
+        });
+
+        // Restaurar selección previa si aún existe como opción
+        if (valorActual) {
+            const existe = Array.from(select.options).some(o => o.value === valorActual);
+            if (existe) select.value = valorActual;
+        }
+
+        // Re-validar disponibilidad con la nueva selección
+        validarDisponibilidadModal();
+    }
+
+    // =========================================
+    // FIX: Validar disponibilidad antes de guardar
+    // =========================================
+    function validarDisponibilidadModal() {
+        const recursoid = parseInt(document.getElementById('modalRecursoid').value);
+        const fechaIni = document.getElementById('modalFechaInicio').value;
+        const fechaFin = document.getElementById('modalFechaFin').value;
+        const alerta = document.getElementById('alertaError');
+        const btnGuardar = document.getElementById('btnGuardarReserva');
+
+        if (!fechaIni || !fechaFin || !recursoid) return;
+
+        const iniDate = new Date(fechaIni + 'T00:00:00');
+        const finDate = new Date(fechaFin + 'T00:00:00');
+
+        // Buscar reservas que se traslapen para este recurso
+        const reservasConflicto = todasLasReservas.filter(r => {
+            if (r.recursoid !== recursoid) return false;
+            if (r.estadoid === 3) return false; // cancelada/disponible
+            const rIni = new Date(r.fecha_inicio);
+            const rFin = new Date(r.fecha_fin);
+            // Traslape real: iniDate < rFin && finDate > rIni
+            // checkout (finDate === rIni en fecha) está permitido
+            const rIniStr = formatDate(rIni);
+            const rFinStr = formatDate(rFin);
+            const iniStr = formatDate(iniDate);
+            const finStr = formatDate(finDate);
+            // No hay conflicto si: finStr <= rIniStr (entra cuando el otro ya salió)
+            //                  o   iniStr >= rFinStr (sale cuando el otro ya entró)
+            return !(finStr <= rIniStr || iniStr >= rFinStr);
+        });
+
+        if (reservasConflicto.length > 0) {
+            const res = reservasConflicto[0];
+            const nombre = res.cliente
+                ? `${res.cliente.nombre ?? ''} ${res.cliente.apellido ?? ''}`.trim()
+                : `Reserva #${res.reservaid}`;
+            const fi = new Date(res.fecha_inicio).toLocaleDateString('es-SV');
+            const ff = new Date(res.fecha_fin).toLocaleDateString('es-SV');
+            mostrarAlerta(`Esta habitación ya tiene una reserva (${nombre}, ${fi} → ${ff}). Elige otras fechas u otra habitación.`);
+            btnGuardar.disabled = true;
+        } else {
+            alerta.style.display = 'none';
+            btnGuardar.disabled = false;
+        }
+    }
+
+    function abrirModalCrear(recursoid, fecha) {
+        document.getElementById('modalFechaInicio').value = fecha;
+
+        // Fecha salida = día siguiente, con min = día siguiente
+        const siguiente = new Date(fecha + 'T00:00:00');
+        siguiente.setDate(siguiente.getDate() + 1);
+        const siguienteStr = formatDate(siguiente);
+        const fechaFinInput = document.getElementById('modalFechaFin');
+        fechaFinInput.value = siguienteStr;
+        fechaFinInput.min = siguienteStr;
+
+        // Establecer min de fecha inicio = hoy
+        document.getElementById('modalFechaInicio').min = fecha;
+
+        // Limpiar flag de edición manual y calcular precio inicial
+        const precioInput = document.getElementById('modalPrecio');
+        delete precioInput.dataset.editadoManual;
+
+        // FIX: Actualizar opciones del select con indicadores de ocupación
+        // y luego seleccionar el recurso correcto
+        actualizarOpcionesHabitacion(fecha);
+        document.getElementById('modalRecursoid').value = recursoid;
+
+        calcularPrecio();
+        limpiarClienteSeleccionado();
+        document.getElementById('alertaError').style.display = 'none';
+        document.getElementById('btnGuardarReserva').disabled = false;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalCrearReserva'));
+        modal.show();
+    }
+
+    // Recalcular precio al cambiar fechas o habitación
+    ['modalFechaInicio', 'modalFechaFin', 'modalRecursoid'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+            // Al cambiar fecha inicio, actualizar min de fecha fin y opciones del select
+            if (id === 'modalFechaInicio') {
+                const fi = document.getElementById('modalFechaInicio').value;
+                if (fi) {
+                    const siguiente = new Date(fi + 'T00:00:00');
+                    siguiente.setDate(siguiente.getDate() + 1);
+                    const ffInput = document.getElementById('modalFechaFin');
+                    ffInput.min = formatDate(siguiente);
+                    // Si la fecha fin es menor o igual a inicio, corregir
+                    if (ffInput.value && ffInput.value <= fi) {
+                        ffInput.value = formatDate(siguiente);
+                    }
+                    // FIX: Actualizar indicadores de ocupación en el select
+                    actualizarOpcionesHabitacion(fi);
+                }
+            }
+            delete document.getElementById('modalPrecio').dataset.editadoManual;
+            calcularPrecio();
+            // FIX: Re-validar disponibilidad al cambiar cualquier campo
+            validarDisponibilidadModal();
+        });
+    });
+
+    // Si el usuario edita el precio manualmente, no sobreescribir
+    document.getElementById('modalPrecio').addEventListener('input', () => {
+        document.getElementById('modalPrecio').dataset.editadoManual = 'true';
+    });
+
+    document.getElementById('btnAgregarReserva').addEventListener('click', () => {
+        const hoy = formatDate(new Date());
+        abrirModalCrear(RECURSOS[0]?.recursoid ?? 0, hoy);
+    });
+
+    // =========================================
+    // GUARDAR RESERVA
+    // =========================================
+    document.getElementById('btnGuardarReserva').addEventListener('click', async () => {
+        const clienteid = document.getElementById('modalClienteId').value;
+        if (!clienteid) {
+            mostrarAlerta('Debes seleccionar un huésped.');
+            return;
+        }
+
+        const fechaInicio = document.getElementById('modalFechaInicio').value;
+        const horaInicio = document.getElementById('modalHoraInicio').value;
+        const fechaFin = document.getElementById('modalFechaFin').value;
+        const horaSalida = document.getElementById('modalHoraSalida').value;
+
+        if (!fechaInicio || !fechaFin) {
+            mostrarAlerta('Las fechas son requeridas.');
+            return;
+        }
+
+        const dto = {
+            clienteid: parseInt(clienteid),
+            recursoid: parseInt(document.getElementById('modalRecursoid').value),
+            estadoid: parseInt(document.getElementById('modalEstadoid').value),
+                fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
+                fecha_fin:    `${fechaFin}T${horaSalida}:00`,
+            preciofinal: parseFloat(document.getElementById('modalPrecio').value) || null
+        };
+
+        const btn = document.getElementById('btnGuardarReserva');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+        try {
+            const resp = await fetch('/Admin/CrearReservaCalendario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dto)
+            });
+
+            if (resp.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('modalCrearReserva')).hide();
+                await cargarReservas();
+            } else {
+                const err = await resp.json();
+                mostrarAlerta(err.error ?? 'Error al guardar la reserva.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar reserva';
+            }
+        } catch (e) {
+            mostrarAlerta('Error de conexión. Intenta de nuevo.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar reserva';
+        }
+    });
+
+    function mostrarAlerta(msg) {
+        const al = document.getElementById('alertaError');
+        al.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+        al.style.display = 'flex';
+    }
+
+    // =========================================
+    // BUSCADOR DE CLIENTES
+    // =========================================
+    document.getElementById('inputBuscarCliente').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const q = e.target.value.trim();
+        if (q.length < 2) {
+            document.getElementById('clienteDropdown').style.display = 'none';
+            return;
+        }
+        searchTimeout = setTimeout(() => buscarClientes(q), 280);
+    });
+
+    async function buscarClientes(q) {
+        const resp = await fetch(`/Admin/BuscarClientes?q=${encodeURIComponent(q)}`);
+        const clientes = await resp.json();
+        renderDropdown(clientes, q);
+    }
+
+    function renderDropdown(clientes, q) {
+        const dd = document.getElementById('clienteDropdown');
+        dd.innerHTML = '';
+
+        clientes.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'cliente-option';
+            item.innerHTML = `
+                <div class="opt-nombre">${c.nombre ?? ''} ${c.apellido ?? ''}</div>
+                <div class="opt-meta">${[c.correo, c.telefono].filter(Boolean).join(' · ')}</div>
+            `;
+            item.addEventListener('click', () => seleccionarCliente(c));
+            dd.appendChild(item);
+        });
+
+        // Opción de crear
+        const crearBtn = document.createElement('div');
+        crearBtn.className = 'cliente-option-crear';
+        crearBtn.innerHTML = `<i class="bi bi-person-plus-fill"></i> Crear "${q}" como nuevo cliente`;
+        crearBtn.addEventListener('click', () => {
+            document.getElementById('nuevoNombre').value = q.split(' ')[0] ?? q;
+            document.getElementById('nuevoApellido').value = q.split(' ').slice(1).join(' ');
+            dd.style.display = 'none';
+            document.getElementById('seccionCrearCliente').style.display = 'block';
+        });
+        dd.appendChild(crearBtn);
+
+        dd.style.display = 'block';
+    }
+
+    function seleccionarCliente(c) {
+        clienteSeleccionado = c;
+        document.getElementById('modalClienteId').value = c.personaid;
+        document.getElementById('clienteSelectedNombre').textContent =
+            `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
+        document.getElementById('clienteSelected').style.display = 'flex';
+        document.getElementById('inputBuscarCliente').style.display = 'none';
+        document.getElementById('clienteDropdown').style.display = 'none';
+        document.getElementById('seccionCrearCliente').style.display = 'none';
+    }
+
+    function limpiarClienteSeleccionado() {
+        clienteSeleccionado = null;
+        document.getElementById('modalClienteId').value = '';
+        document.getElementById('clienteSelected').style.display = 'none';
+        document.getElementById('inputBuscarCliente').style.display = 'block';
+        document.getElementById('inputBuscarCliente').value = '';
+        document.getElementById('clienteDropdown').style.display = 'none';
+        document.getElementById('seccionCrearCliente').style.display = 'none';
+    }
+
+    document.getElementById('btnClearCliente').addEventListener('click', limpiarClienteSeleccionado);
+
+    document.getElementById('btnCerrarCrearCliente').addEventListener('click', () => {
+        document.getElementById('seccionCrearCliente').style.display = 'none';
+    });
+
+    // =========================================
+    // GUARDAR NUEVO CLIENTE
+    // =========================================
+    function mostrarErrorCampo(idError, mensaje) {
+        const el = document.getElementById(idError);
+        el.textContent = mensaje;
+        el.style.display = 'block';
+    }
+    function limpiarErrorCampo(idError) {
+        const el = document.getElementById(idError);
+        el.textContent = '';
+        el.style.display = 'none';
+    }
+    function limpiarTodosLosErrores() {
+        ['errNombre','errApellido','errCorreo','errTelefono'].forEach(limpiarErrorCampo);
+    }
+    function limpiarErrorAlEscribir(inputId, errorId) {
+        document.getElementById(inputId).addEventListener('input', () => limpiarErrorCampo(errorId));
+    }
+    limpiarErrorAlEscribir('nuevoNombre',   'errNombre');
+    limpiarErrorAlEscribir('nuevoApellido', 'errApellido');
+    limpiarErrorAlEscribir('nuevoCorreo',   'errCorreo');
+    limpiarErrorAlEscribir('nuevoTelefono', 'errTelefono');
+
+    function validarNuevoCliente() {
+        let valido = true;
+        limpiarTodosLosErrores();
+
+        const nombre   = document.getElementById('nuevoNombre').value.trim();
+        const apellido = document.getElementById('nuevoApellido').value.trim();
+        const correo   = document.getElementById('nuevoCorreo').value.trim();
+        const telefono = document.getElementById('nuevoTelefono').value.trim();
+
+        // Nombre: requerido, solo letras y espacios
+        if (!nombre) {
+            mostrarErrorCampo('errNombre', 'El nombre es requerido.');
+            valido = false;
+        } else if (!new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(nombre)) {
+            mostrarErrorCampo('errNombre', 'Solo se permiten letras.');
+            valido = false;
+        }
+
+        // Apellido: opcional, pero si se escribe algo, solo letras
+        if (apellido && !new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(apellido)) {
+            mostrarErrorCampo('errApellido', 'Solo se permiten letras.');
+            valido = false;
+        }
+
+        // Correo: opcional, pero si se escribe algo debe tener formato válido
+        if (correo && !new RegExp("^[^\\s@@]+@@[^\\s@@]+\\.[^\\s@@]{2,}$").test(correo)) {
+            mostrarErrorCampo('errCorreo', 'Ingresa un correo válido (ej: nombre@@dominio.com).');
+            valido = false;
+        }
+
+        // Teléfono: opcional, pero si se escribe algo debe ser exactamente 8 dígitos
+        if (telefono && !new RegExp("^\\d{8}$").test(telefono)) {
+            mostrarErrorCampo('errTelefono', 'El teléfono debe tener exactamente 8 dígitos.');
+            valido = false;
+        }
+
+        return valido;
+    }
+
+    document.getElementById('btnGuardarNuevoCliente').addEventListener('click', async () => {
+        if (!validarNuevoCliente()) return;
+
+        const dto = {
+            nombre:   document.getElementById('nuevoNombre').value.trim(),
+            apellido: document.getElementById('nuevoApellido').value.trim() || null,
+            correo:   document.getElementById('nuevoCorreo').value.trim() || null,
+            telefono: document.getElementById('nuevoTelefono').value.trim() || null
+        };
+
+        const btn = document.getElementById('btnGuardarNuevoCliente');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+        try {
+            const resp = await fetch('/Admin/CrearClienteRapido', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dto)
+            });
+
+            if (resp.ok) {
+                const nuevo = await resp.json();
+                seleccionarCliente(nuevo);
+                limpiarTodosLosErrores();
+                ['nuevoNombre','nuevoApellido','nuevoCorreo','nuevoTelefono']
+                    .forEach(id => document.getElementById(id).value = '');
+            } else {
+                const err = await resp.json();
+                alert(err.error ?? 'Error al crear el cliente.');
+            }
+        } catch (e) {
+            alert('Error de conexión.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
+        }
+    });
+
+    // =========================================
+    // MODAL EDITAR RESERVA
+    // =========================================
+    let reservaidEditando = null;
+    let editClienteSeleccionado = null;
+    let editSearchTimeout = null;
+
+    document.getElementById('btnEditarReservaPopover').addEventListener('click', () => {
+        if (!reservaActualEnPopover) return;
+        document.getElementById('calPopover').style.display = 'none';
+        abrirModalEditar(reservaActualEnPopover);
+    });
+
+    function abrirModalEditar(r) {
+        reservaidEditando = r.reservaid;
+
+        // Habitación
+        document.getElementById('editRecursoid').value = r.recursoid;
+
+        // Estado
+        document.getElementById('editEstadoid').value = r.estadoid;
+
+        // Fechas y horas — leer directamente del string ISO para evitar conversiones de zona horaria
+        const fiStr = r.fecha_inicio;
+        const ffStr = r.fecha_fin;
+        document.getElementById('editFechaInicio').value = fiStr.substring(0, 10);
+        document.getElementById('editFechaFin').value   = ffStr.substring(0, 10);
+        document.getElementById('editHoraInicio').value = fiStr.substring(11, 16);
+        document.getElementById('editHoraSalida').value = ffStr.substring(11, 16);
+
+        // Precio
+        const precioInput = document.getElementById('editPrecio');
+        precioInput.value = r.preciofinal != null ? Number(r.preciofinal).toFixed(2) : '';
+        delete precioInput.dataset.editadoManual;
+        calcularPrecioEditar();
+
+        // Cliente
+        if (r.cliente) {
+            editSeleccionarCliente(r.cliente);
+        } else {
+            editLimpiarClienteSeleccionado();
+        }
+
+        document.getElementById('editAlertaError').style.display = 'none';
+        const btnGuardar = document.getElementById('btnGuardarEdicion');
+        btnGuardar.disabled = false;
+        btnGuardar.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEditarReserva'));
+        modal.show();
+    }
+
+    function calcularPrecioEditar() {
+        const fi = document.getElementById('editFechaInicio').value;
+        const ff = document.getElementById('editFechaFin').value;
+        const recursoid = document.getElementById('editRecursoid').value;
+        const infoEl = document.getElementById('editPrecioInfo');
+        const infoTexto = document.getElementById('editPrecioInfoTexto');
+        const precioInput = document.getElementById('editPrecio');
+
+        if (!fi || !ff) { infoEl.style.display = 'none'; return; }
+        const inicio = new Date(fi);
+        const fin = new Date(ff);
+        const dias = Math.round((fin - inicio) / (1000 * 60 * 60 * 24));
+        if (dias <= 0) { infoEl.style.display = 'none'; return; }
+
+        const precioPorNoche = getPrecioRecurso(recursoid);
+        const total = dias * precioPorNoche;
+        infoTexto.textContent = `${dias} ${dias === 1 ? 'día' : 'días'} × $${precioPorNoche.toFixed(2)}/noche = $${total.toFixed(2)}`;
+        infoEl.style.display = 'flex';
+
+        if (!precioInput.dataset.editadoManual) {
+            precioInput.value = total.toFixed(2);
+        }
+    }
+
+    // Recalcular precio al cambiar fechas o habitación en modal editar
+    ['editFechaInicio', 'editFechaFin', 'editRecursoid'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+            if (id === 'editFechaInicio') {
+                const fi = document.getElementById('editFechaInicio').value;
+                if (fi) {
+                    const siguiente = new Date(fi + 'T00:00:00');
+                    siguiente.setDate(siguiente.getDate() + 1);
+                    const ffInput = document.getElementById('editFechaFin');
+                    ffInput.min = formatDate(siguiente);
+                    if (ffInput.value && ffInput.value <= fi) {
+                        ffInput.value = formatDate(siguiente);
+                    }
+                }
+            }
+            delete document.getElementById('editPrecio').dataset.editadoManual;
+            calcularPrecioEditar();
+        });
+    });
+
+    document.getElementById('editPrecio').addEventListener('input', () => {
+        document.getElementById('editPrecio').dataset.editadoManual = 'true';
+    });
+
+    // Guardar edición
+    document.getElementById('btnGuardarEdicion').addEventListener('click', async () => {
+        const clienteid = document.getElementById('editClienteId').value;
+        if (!clienteid) {
+            mostrarAlertaEditar('Debes seleccionar un huésped.');
+            return;
+        }
+        const fechaInicio = document.getElementById('editFechaInicio').value;
+        const horaInicio  = document.getElementById('editHoraInicio').value;
+        const fechaFin    = document.getElementById('editFechaFin').value;
+        const horaSalida  = document.getElementById('editHoraSalida').value;
+
+        if (!fechaInicio || !fechaFin) {
+            mostrarAlertaEditar('Las fechas son requeridas.');
+            return;
+        }
+
+        const dto = {
+            reservaid:    reservaidEditando,
+            clienteid:    parseInt(clienteid),
+            recursoid:    parseInt(document.getElementById('editRecursoid').value),
+            estadoid:     parseInt(document.getElementById('editEstadoid').value),
+            fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
+            fecha_fin:    `${fechaFin}T${horaSalida}:00`,
+            preciofinal:  parseFloat(document.getElementById('editPrecio').value) || null
+        };
+
+        const btn = document.getElementById('btnGuardarEdicion');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+
+        try {
+            const resp = await fetch('/Admin/EditarReservaCalendario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dto)
+            });
+
+            if (resp.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('modalEditarReserva')).hide();
+                await cargarReservas();
+            } else {
+                const err = await resp.json();
+                mostrarAlertaEditar(err.error ?? 'Error al guardar los cambios.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+            }
+        } catch (e) {
+            mostrarAlertaEditar('Error de conexión. Intenta de nuevo.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+        }
+    });
+
+    function mostrarAlertaEditar(msg) {
+        const al = document.getElementById('editAlertaError');
+        al.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+        al.style.display = 'flex';
+    }
+
+    // Buscador de clientes en modal editar
+    document.getElementById('editInputBuscarCliente').addEventListener('input', (e) => {
+        clearTimeout(editSearchTimeout);
+        const q = e.target.value.trim();
+        if (q.length < 2) {
+            document.getElementById('editClienteDropdown').style.display = 'none';
+            return;
+        }
+        editSearchTimeout = setTimeout(() => editBuscarClientes(q), 280);
+    });
+
+    async function editBuscarClientes(q) {
+        const resp = await fetch(`/Admin/BuscarClientes?q=${encodeURIComponent(q)}`);
+        const clientes = await resp.json();
+        editRenderDropdown(clientes, q);
+    }
+
+    function editRenderDropdown(clientes, q) {
+        const dd = document.getElementById('editClienteDropdown');
+        dd.innerHTML = '';
+        clientes.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'cliente-option';
+            item.innerHTML = `
+                <div class="opt-nombre">${c.nombre ?? ''} ${c.apellido ?? ''}</div>
+                <div class="opt-meta">${[c.correo, c.telefono].filter(Boolean).join(' · ')}</div>
+            `;
+            item.addEventListener('click', () => editSeleccionarCliente(c));
+            dd.appendChild(item);
+        });
+        const crearBtn = document.createElement('div');
+        crearBtn.className = 'cliente-option-crear';
+        crearBtn.innerHTML = `<i class="bi bi-person-plus-fill"></i> Crear "${q}" como nuevo cliente`;
+        crearBtn.addEventListener('click', () => {
+            document.getElementById('editNuevoNombre').value   = q.split(' ')[0] ?? q;
+            document.getElementById('editNuevoApellido').value = q.split(' ').slice(1).join(' ');
+            dd.style.display = 'none';
+            document.getElementById('editSeccionCrearCliente').style.display = 'block';
+        });
+        dd.appendChild(crearBtn);
+        dd.style.display = 'block';
+    }
+
+    function editSeleccionarCliente(c) {
+        editClienteSeleccionado = c;
+        document.getElementById('editClienteId').value = c.personaid;
+        document.getElementById('editClienteSelectedNombre').textContent =
+            `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
+        document.getElementById('editClienteSelected').style.display = 'flex';
+        document.getElementById('editInputBuscarCliente').style.display = 'none';
+        document.getElementById('editClienteDropdown').style.display = 'none';
+        document.getElementById('editSeccionCrearCliente').style.display = 'none';
+    }
+
+    function editLimpiarClienteSeleccionado() {
+        editClienteSeleccionado = null;
+        document.getElementById('editClienteId').value = '';
+        document.getElementById('editClienteSelected').style.display = 'none';
+        document.getElementById('editInputBuscarCliente').style.display = 'block';
+        document.getElementById('editInputBuscarCliente').value = '';
+        document.getElementById('editClienteDropdown').style.display = 'none';
+        document.getElementById('editSeccionCrearCliente').style.display = 'none';
+    }
+
+    document.getElementById('btnEditClearCliente').addEventListener('click', editLimpiarClienteSeleccionado);
+    document.getElementById('btnEditCerrarCrearCliente').addEventListener('click', () => {
+        document.getElementById('editSeccionCrearCliente').style.display = 'none';
+    });
+
+    // Crear cliente rápido en modal editar
+    function editMostrarErrorCampo(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+    function editLimpiarErrorCampo(id) {
+        const el = document.getElementById(id);
+        el.textContent = '';
+        el.style.display = 'none';
+    }
+    function editLimpiarTodosLosErrores() {
+        ['editErrNombre','editErrApellido','editErrCorreo','editErrTelefono'].forEach(editLimpiarErrorCampo);
+    }
+    ['editNuevoNombre','editNuevoApellido','editNuevoCorreo','editNuevoTelefono'].forEach((inputId, i) => {
+        const errId = ['editErrNombre','editErrApellido','editErrCorreo','editErrTelefono'][i];
+        document.getElementById(inputId).addEventListener('input', () => editLimpiarErrorCampo(errId));
+    });
+
+    function editValidarNuevoCliente() {
+        let valido = true;
+        editLimpiarTodosLosErrores();
+        const nombre   = document.getElementById('editNuevoNombre').value.trim();
+        const apellido = document.getElementById('editNuevoApellido').value.trim();
+        const correo   = document.getElementById('editNuevoCorreo').value.trim();
+        const telefono = document.getElementById('editNuevoTelefono').value.trim();
+        if (!nombre) {
+            editMostrarErrorCampo('editErrNombre', 'El nombre es requerido.');
+            valido = false;
+        } else if (!new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(nombre)) {
+            editMostrarErrorCampo('editErrNombre', 'Solo se permiten letras.');
+            valido = false;
+        }
+        if (apellido && !new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(apellido)) {
+            editMostrarErrorCampo('editErrApellido', 'Solo se permiten letras.');
+            valido = false;
+        }
+        if (correo && !new RegExp("^[^\\s@@]+@@[^\\s@@]+\\.[^\\s@@]{2,}$").test(correo)) {
+            editMostrarErrorCampo('editErrCorreo', 'Ingresa un correo válido.');
+            valido = false;
+        }
+        if (telefono && !new RegExp("^\\d{8}$").test(telefono)) {
+            editMostrarErrorCampo('editErrTelefono', 'El teléfono debe tener exactamente 8 dígitos.');
+            valido = false;
+        }
+        return valido;
+    }
+
+    document.getElementById('btnEditGuardarNuevoCliente').addEventListener('click', async () => {
+        if (!editValidarNuevoCliente()) return;
+        const dto = {
+            nombre:   document.getElementById('editNuevoNombre').value.trim(),
+            apellido: document.getElementById('editNuevoApellido').value.trim() || null,
+            correo:   document.getElementById('editNuevoCorreo').value.trim() || null,
+            telefono: document.getElementById('editNuevoTelefono').value.trim() || null
+        };
+        const btn = document.getElementById('btnEditGuardarNuevoCliente');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+        try {
+            const resp = await fetch('/Admin/CrearClienteRapido', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dto)
+            });
+            if (resp.ok) {
+                const nuevo = await resp.json();
+                editSeleccionarCliente(nuevo);
+                editLimpiarTodosLosErrores();
+                ['editNuevoNombre','editNuevoApellido','editNuevoCorreo','editNuevoTelefono']
+                    .forEach(id => document.getElementById(id).value = '');
+            } else {
+                const err = await resp.json();
+                alert(err.error ?? 'Error al crear el cliente.');
+            }
+        } catch (e) {
+            alert('Error de conexión.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
+        }
+    });
+
+    // =========================================
+    // BUSCADOR GLOBAL (filtrar píldoras)
+    // =========================================
+    document.getElementById('buscadorHuesped').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase().trim();
+        if (!q) {
+            renderPildoras(todasLasReservas);
+            return;
+        }
+        const filtradas = todasLasReservas.filter(r => {
+            const nombre = `${r.cliente?.nombre ?? ''} ${r.cliente?.apellido ?? ''}`.toLowerCase();
+            const correo = (r.cliente?.correo ?? '').toLowerCase();
+            return nombre.includes(q) || correo.includes(q);
+        });
+        renderPildoras(filtradas);
+        // Resaltar
+        document.querySelectorAll('.cal-pill').forEach(p => p.classList.add('resaltada'));
+    });
+
+    // =========================================
+    // NAVEGACIÓN DE MES
+    // =========================================
+    document.getElementById('btnMesAnterior').addEventListener('click', () => {
+        mesActual.setMonth(mesActual.getMonth() - 1);
+        renderCalendario();
+        cargarReservas();
+    });
+
+    document.getElementById('btnMesSiguiente').addEventListener('click', () => {
+        mesActual.setMonth(mesActual.getMonth() + 1);
+        renderCalendario();
+        cargarReservas();
+    });
+
+    document.getElementById('btnHoy').addEventListener('click', () => {
+        mesActual = new Date();
+        mesActual.setDate(1);
+        renderCalendario();
+        cargarReservas();
+
+        // Scroll al día de hoy
+        setTimeout(() => {
+            const hoy = new Date();
+            const wrap = document.getElementById('timelineWrap');
+            const diaHoy = hoy.getDate();
+            wrap.scrollLeft = (diaHoy - 3) * 44;
+        }, 100);
+    });
+
+    // =========================================
+    // EXPORTAR ICS (multi-habitación)
+    // =========================================
+    function exportarICS() {
+        if (RECURSOS.length === 1) {
+            window.location.href = `/Admin/ExportarICS/${RECURSOS[0].recursoid}`;
+        } else {
+            // Exportar la primera habitación como ejemplo o mostrar modal de selección
+            const recursoid = RECURSOS[0]?.recursoid;
+            if (recursoid) window.location.href = `/Admin/ExportarICS/${recursoid}`;
+        }
+    }
+
+    // =========================================
+    // BIND EVENTOS (llamado en DOMContentLoaded)
+    // =========================================
+    function bindEventos() {
+        // Los eventos inline ya están registrados arriba con addEventListener.
+        // Esta función existe por si se necesita inicialización adicional.
+    }
+
+    // =========================================
+    // UTILS
+    // =========================================
+    function formatDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+</script>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
