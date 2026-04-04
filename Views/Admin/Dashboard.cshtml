@@ -1,0 +1,211 @@
+﻿@using Coco_Beach.Models
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<div class="container-fluid pb-5">
+    <div class="cb-page-header d-flex align-items-center justify-content-start mb-4 text-start">
+        <i class="bi bi-grid-fill cb-page-header-icon me-3"></i>
+        <div class="d-flex flex-column align-items-start">
+            <h2 class="m-0 fw-bold" style="color: white; text-align: left;">Dashboard Administrativo</h2>
+            <p class="m-0" style="color: rgba(255,255,255,0.8); text-align: left;">Control de operaciones y rendimiento</p>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold m-0" style="color: #1e293b;">Resumen de Rendimiento</h4>
+
+        <div class="dropdown">
+            <button class="btn btn-light fw-bold px-4 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" style="border-radius: 30px; color: #29b6d2;">
+                <i class="bi bi-calendar3 me-2"></i>
+                @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(ViewBag.MesFiltro) @ViewBag.AnioFiltro
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2" style="border-radius: 15px;">
+                @foreach (var mes in (IEnumerable<SelectListItem>)ViewBag.MesesList)
+                {
+                    <li>
+                        <a class="dropdown-item py-2 @(mes.Selected ? "active" : "")"
+                           href="@Url.Action("Dashboard", "Admin", new { mes = mes.Value, anio = ViewBag.AnioFiltro })">
+                            @mes.Text
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="cb-stat-card text-center h-100 shadow-sm border-0" style="border-radius: 20px; background: white; padding: 25px;">
+                <div class="stat-icon mb-2 mx-auto" style="background: #e3f2fd; color: #2196f3; width: 55px; height: 55px; border-radius: 15px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-calendar-check fs-3"></i>
+                </div>
+                <div class="stat-value fw-bold fs-1" style="color: #1e293b;">@ViewBag.TotalReservasMes</div>
+                <div class="stat-label fw-semibold text-muted">Reservas del Mes</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="cb-stat-card text-center h-100 shadow-sm border-0" style="border-radius: 20px; background: white; padding: 25px;">
+                <div class="stat-icon mb-2 mx-auto" style="background: #e8f5e9; color: #2ecc9a; width: 55px; height: 55px; border-radius: 15px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-cash-stack fs-3"></i>
+                </div>
+                <div class="stat-value fw-bold fs-1" style="color: #1e293b;">$@ViewBag.TotalGananciasMes.ToString("N0")</div>
+                <div class="stat-label fw-semibold text-muted">Ganancias del Mes</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cb-card mb-5 shadow-sm border-0" style="border-radius: 20px; background: white; overflow: hidden;">
+        <div class="p-4">
+            <h5 class="mb-3 fw-bold" style="color: #475569;">Rendimiento por cada habitación</h5>
+            <div class="table-responsive" style="border-radius: 12px; overflow: hidden;">
+                <table class="table mb-0">
+                    <thead style="background: #29b6d2; color: white;">
+                        <tr>
+                            <th class="py-3 px-4 border-0">HABITACIÓN</th>
+                            <th class="py-3 text-center border-0">RESERVAS</th>
+                            <th class="py-3 text-end px-4 border-0">GANANCIAS</th>
+                        </tr>
+                    </thead>
+                    <tbody style="background: #fdfdfd;">
+                        @if (ViewBag.RankingHabitaciones != null && ((IEnumerable<dynamic>)ViewBag.RankingHabitaciones).Any())
+                        {
+                            foreach (var item in ViewBag.RankingHabitaciones)
+                            {
+                                <tr style="vertical-align: middle; border-bottom: 1px solid #eee;">
+                                    <td class="py-3 px-4 fw-bold" style="color: #475569;">@item.Nombre</td>
+                                    <td class="py-3 text-center fw-bold">@item.Reservas</td>
+                                    <td class="py-3 text-end px-4 fw-bold text-primary">$@item.Ganancias.ToString("N0")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="3" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                                        <p class="fw-bold m-0">No se encontraron reservas para este mes.</p>
+                                        <small>Intenta seleccionar otro periodo en el filtro superior.</small>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="cb-card shadow-sm border-0" style="border-radius: 20px; background: white;">
+        <div class="p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="m-0 fw-bold" style="color: #1e293b;">Disponibilidad de este día</h4>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge d-flex align-items-center gap-2" style="background:#fee2e2; color:#dc2626; border: 1px solid #fca5a5; padding: 8px 15px; border-radius: 10px;">
+                        <span style="width: 8px; height: 8px; background: #dc2626; border-radius: 50%;"></span> Reservada
+                    </span>
+                    <span class="badge d-flex align-items-center gap-2" style="background:#fef3c7; color:#d97706; border: 1px solid #fcd34d; padding: 8px 15px; border-radius: 10px;">
+                        <span style="width: 8px; height: 8px; background: #d97706; border-radius: 50%;"></span> En proceso
+                    </span>
+                    <span class="badge d-flex align-items-center gap-2" style="background:#dcfce7; color:#16a34a; border: 1px solid #86efac; padding: 8px 15px; border-radius: 10px;">
+                        <span style="width: 8px; height: 8px; background: #16a34a; border-radius: 50%;"></span> Disponible
+                    </span>
+                </div>
+            </div>
+
+            <div class="cinema-grid">
+                @foreach (var hab in ViewBag.ListaHabitaciones)
+                {
+                    string clase = hab.EstadoIdActual == ViewBag.IdReservada ? "cine-reservada" :
+                    (hab.EstadoIdActual == ViewBag.IdEnProceso ? "cine-proceso" : "cine-disponible");
+
+                    <div class="cine-item @clase">
+                        <span class="cine-name">@hab.Nombre</span>
+                        <div class="cine-bar"></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cinema-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 25px;
+        padding: 10px 0;
+    }
+
+    .cine-item {
+        height: 110px;
+        border-radius: 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 2px solid transparent;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+        .cine-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+    .cine-name {
+        font-weight: 800;
+        font-size: 0.95rem;
+        text-align: center;
+        padding: 0 10px;
+        line-height: 1.2;
+    }
+
+    .cine-bar {
+        width: 65%;
+        height: 8px;
+        border-radius: 20px;
+        background: rgba(0,0,0,0.15);
+    }
+
+    .cine-disponible {
+        background: #dcfce7;
+        color: #16a34a;
+        border-color: #86efac;
+    }
+
+        .cine-disponible .cine-bar {
+            background: #16a34a;
+            opacity: 0.4;
+        }
+
+    .cine-reservada {
+        background: #fee2e2;
+        color: #dc2626;
+        border-color: #fca5a5;
+    }
+
+        .cine-reservada .cine-bar {
+            background: #dc2626;
+            opacity: 0.4;
+        }
+
+    .cine-proceso {
+        background: #fef3c7;
+        color: #d97706;
+        border-color: #fcd34d;
+    }
+
+        .cine-proceso .cine-bar {
+            background: #d97706;
+            opacity: 0.4;
+        }
+
+    .dropdown-item.active {
+        background-color: #29b6d2 !important;
+    }
+</style>

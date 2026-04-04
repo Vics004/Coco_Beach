@@ -755,6 +755,84 @@ namespace Coco_Beach.Controllers
             public double? preciofinal { get; set; }
         }
 
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> Dashboard(int? mes, int? anio)
+        {
+            // Lógica del Filtro de Mes 
+            var hoy = DateTime.Today;
+            int mesFiltro = mes ?? hoy.Month;
+            int anioFiltro = anio ?? hoy.Year;
+
+            // Rango del mes para KPIs
+            var inicioMes = DateTime.SpecifyKind(new DateTime(anioFiltro, mesFiltro, 1), DateTimeKind.Utc);
+            var finMes = inicioMes.AddMonths(1).AddDays(-1).AddHours(23).AddMinutes(59);
+
+      
+            var inicioHoy = DateTime.SpecifyKind(hoy, DateTimeKind.Utc);
+            var finHoy = inicioHoy.AddDays(1).AddTicks(-1);
+
+            ViewBag.MesFiltro = mesFiltro;
+            ViewBag.AnioFiltro = anioFiltro;
+
+            var meses = Enumerable.Range(1, 12).Select(m => new {
+                Value = m,
+                Text = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+            });
+            ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
+
+            // 2. IDs de Estados
+            var estados = await _context.estado.ToListAsync();
+            int idDisponible = estados.FirstOrDefault(e => e.nombre == "Disponible")?.estadoid ?? 0;
+            int idReservada = estados.FirstOrDefault(e => e.nombre == "Reservado")?.estadoid ?? 0;
+            int idEnProceso = estados.FirstOrDefault(e => e.nombre == "En proceso de reserva")?.estadoid ?? 0;
+
+            ViewBag.IdReservada = idReservada;
+            ViewBag.IdEnProceso = idEnProceso;
+
+            // KPIs del Mes
+            var reservasMesQuery = _context.reserva
+                .Where(r => r.fecha_inicio >= inicioMes && r.fecha_inicio <= finMes && r.estadoid != idDisponible);
+
+            ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
+            ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal) ?? 0;
+
+            // Filtrado por mes
+            ViewBag.RankingHabitaciones = await (from res in _context.reserva
+                                                 join rec in _context.recurso on res.recursoid equals rec.recursoid
+                                                 where res.fecha_inicio >= inicioMes && res.fecha_inicio <= finMes && res.estadoid != idDisponible
+                                                 group res by new { rec.nombre } into grupo
+                                                 select new
+                                                 {
+                                                     Nombre = grupo.Key.nombre,
+                                                     Reservas = grupo.Count(),
+                                                     Ganancias = grupo.Sum(x => x.preciofinal) ?? 0
+                                                 })
+                                                 .OrderByDescending(x => x.Ganancias)
+                                                 .ToListAsync();
+
+
+        
+            var estadoHabitaciones = await (from rec in _context.recurso
+                                            join res in _context.reserva.Where(r => r.fecha_inicio <= finHoy && r.fecha_fin >= inicioHoy)
+                                            on rec.recursoid equals res.recursoid into joinReserva
+                                            from subRes in joinReserva.DefaultIfEmpty()
+                                   
+                                            group subRes by new { rec.recursoid, rec.nombre } into grupo
+                                            select new
+                                            {
+                                                Nombre = grupo.Key.nombre,
+                                                EstadoIdActual = grupo.Any(x => x != null)
+                                                                 ? grupo.Where(x => x != null).Min(x => x.estadoid)
+                                                                 : idDisponible
+                                            })
+                .OrderBy(x => x.Nombre)
+                .ToListAsync();
+
+            ViewBag.ListaHabitaciones = estadoHabitaciones;
+
+            return View();
+        }
+
 
     }
 }
