@@ -2,6 +2,7 @@
 using Coco_Beach.Servicios;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
 
 using System.Text;
@@ -21,15 +22,41 @@ namespace Coco_Beach.Controllers
         // GET: usuario
         // GET: Admin
         [AutenticationAttribute.Autenticacion]
-        public async Task<IActionResult> UsuarioIndex()
+        public async Task<IActionResult> UsuarioIndex(string search, string rol, bool? estado)
         {
-            var personasConUsuario = await _context.persona
+            var query = _context.persona
                 .Include(p => p.rol)
-                .Where(p => _context.usuario.Any(u => u.personaid == p.personaid))
-                .ToListAsync();
+                .AsQueryable();
+
+            var personasConUsuario = await query.ToListAsync();
+
+            // Formatear teléfono
+            foreach (var persona in personasConUsuario)
+            {
+                if (!string.IsNullOrEmpty(persona.telefono))
+                    persona.telefono = persona.telefono.Replace("|", " ");
+            }
+
+            // Serializar solo lo necesario para el JS del cliente
+            var paraJS = personasConUsuario.Select(u => new
+            {
+                u.personaid,
+                u.nombre,
+                u.apellido,
+                u.correo,
+                u.estado,
+                u.rolid,
+                telefono = u.telefono ?? "",
+                rolNombre = u.rol?.nombre ?? ""
+            }).ToList();
+
+            ViewBag.Roles = await _context.rol.ToListAsync();
+            ViewBag.UsuariosJson = System.Text.Json.JsonSerializer.Serialize(paraJS);
 
             return View(personasConUsuario);
         }
+
+
 
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Create
@@ -44,30 +71,135 @@ namespace Coco_Beach.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UsuarioCreate(
-            [Bind("nombre,apellido,correo,rolid,estado,telefono")] persona persona,
-            string password)
+           [Bind("nombre,apellido,correo,rolid,estado,telefono")] persona persona,
+           string password)
         {
+            // 🔥 IMPORTANTE: Extraer código y número ANTES de la validación
+            string codigoPais = "";
+            string numeroTelefono = "";
+            if (!string.IsNullOrWhiteSpace(persona.telefono) && persona.telefono.Contains("|"))
+            {
+                var parts = persona.telefono.Split('|');
+                if (parts.Length == 2)
+                {
+                    codigoPais = parts[0];
+                    numeroTelefono = parts[1];
+                }
+            }
+
+            // Validación adicional del teléfono en el servidor
+            if (!string.IsNullOrWhiteSpace(persona.telefono) && persona.telefono.Contains("|"))
+            {
+                var parts = persona.telefono.Split('|');
+                if (parts.Length == 2)
+                {
+                    string codigo = parts[0];
+                    string numero = parts[1];
+
+                    // Definir los mismos requisitos que en el cliente
+                    var digitosRequeridos = new Dictionary<string, int>
+            {
+                 {"+1", 10}, {"+52", 10},
+
+                {"+501", 7}, {"+502", 8}, {"+503", 8}, {"+504", 8},
+                {"+505", 8}, {"+506", 8}, {"+507", 8},
+
+                {"+53", 8}, {"+509", 8}, {"+1809", 10},
+                {"+1876", 10}, {"+1787", 10},
+
+                {"+54", 10}, {"+55", 11}, {"+56", 9},
+                {"+57", 10}, {"+58", 10}, {"+51", 9},
+
+                {"+591", 8}, {"+593", 9}, {"+595", 9},
+                {"+598", 8}, {"+592", 7}, {"+597", 7}
+            };
+
+                    if (digitosRequeridos.ContainsKey(codigo))
+                    {
+                        int digitosNecesarios = digitosRequeridos[codigo];
+                        if (numero.Length != digitosNecesarios)
+                        {
+                            ModelState.AddModelError("telefono", $"El número debe tener exactamente {digitosNecesarios} dígitos para {codigo}");
+                        }
+                    }
+                }
+            }
+
+            // Obtener el rol Cliente de la base de datos
+            var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre == "Cliente");
+
+            // Determinar si el rol seleccionado es Cliente
+            bool esRolCliente = (rolCliente != null && persona.rolid == rolCliente.rolid);
+
+            // 🔥 IMPORTANTE: Limpiar el error de contraseña ANTES de validar ModelState
+            // Si es cliente, removemos cualquier error relacionado con la contraseña
+            if (esRolCliente)
+            {
+                ModelState.Remove("password"); // Elimina password del ModelState
+                password = null; // Forzamos a null
+            }
+
+            // Validar que el rol existe en la DB
+            var rolExiste = await _context.rol.AnyAsync(r => r.rolid == persona.rolid);
+            if (!rolExiste)
+            {
+                ModelState.AddModelError("rolid", "El rol seleccionado no es válido.");
+            }
+
+            // Solo validar contraseña si NO es cliente
+            if (!esRolCliente)
+            {
+                ModelState.Remove("password");
+
+                if (string.IsNullOrWhiteSpace(password))
+                {
+                    ModelState.AddModelError("password", "La contraseña es obligatoria para este rol.");
+                }
+                else if (password.Length < 8)
+                {
+                    ModelState.AddModelError("password", "La contraseña debe tener al menos 8 caracteres.");
+                }
+            }
+            // Validar correo único
+            bool correoExiste = await _context.persona
+                .AnyAsync(p => p.correo == persona.correo);
+
+            if (correoExiste)
+            {
+                ModelState.AddModelError("correo", "Este correo ya está registrado.");
+            }
+            // Ahora sí verificamos si el modelo es válido
             if (ModelState.IsValid)
             {
+                // Guardar Persona
+
                 _context.persona.Add(persona);
+
                 await _context.SaveChangesAsync();
 
-                var usuario = new usuario
+                // Crear usuario solo si NO es cliente
+                if (!esRolCliente)
                 {
-                    personaid = persona.personaid,
-                    password = password  // ← TODO: Hashear 
-                };
-
-                _context.usuario.Add(usuario);
-                await _context.SaveChangesAsync();
+                    var usuario = new usuario
+                    {
+                        personaid = persona.personaid,
+                        password = password // ⚠️ RECUERDA: Encriptar la contraseña
+                    };
+                    _context.usuario.Add(usuario);
+                    await _context.SaveChangesAsync();
+                }
 
                 return RedirectToAction(nameof(UsuarioIndex));
             }
 
+            // 🔥 IMPORTANTE: Guardar los valores de teléfono para restaurarlos en la vista
+            ViewBag.CodigoPais = codigoPais;
+            ViewBag.NumeroTelefono = numeroTelefono;
+            ViewBag.Password = password; // Guardar contraseña para restaurarla (solo si no es cliente)
             ViewBag.RolSelect = new SelectList(_context.rol, "rolid", "nombre", persona.rolid);
+
             return View(persona);
         }
-
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Edit/5
         public async Task<IActionResult> UsuarioEdit(int? id)
@@ -75,7 +207,7 @@ namespace Coco_Beach.Controllers
             if (id == null) return NotFound();
 
             var persona = await _context.persona.FindAsync(id);
-            if (persona == null || !_context.usuario.Any(u => u.personaid == id))
+            if (persona == null )
                 return NotFound();
 
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
@@ -88,18 +220,136 @@ namespace Coco_Beach.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UsuarioEdit(int id,
-            [Bind("personaid,nombre,apellido,correo,rolid,estado,telefono")] persona persona)
+    [Bind("personaid,nombre,apellido,correo,rolid,estado,telefono")] persona persona,
+    string password)
         {
             if (id != persona.personaid) return NotFound();
+
+            // Validación adicional del teléfono en el servidor
+            if (!string.IsNullOrWhiteSpace(persona.telefono) && persona.telefono.Contains("|"))
+            {
+                var parts = persona.telefono.Split('|');
+                if (parts.Length == 2)
+                {
+                    string codigo = parts[0];
+                    string numero = parts[1];
+
+                    // Definir los mismos requisitos que en el cliente
+                    var digitosRequeridos = new Dictionary<string, int>
+            {
+                {"+1", 10}, {"+52", 10},
+
+                {"+501", 7}, {"+502", 8}, {"+503", 8}, {"+504", 8},
+                {"+505", 8}, {"+506", 8}, {"+507", 8},
+
+                {"+53", 8}, {"+509", 8}, {"+1809", 10},
+                {"+1876", 10}, {"+1787", 10},
+
+                {"+54", 10}, {"+55", 11}, {"+56", 9},
+                {"+57", 10}, {"+58", 10}, {"+51", 9},
+
+                {"+591", 8}, {"+593", 9}, {"+595", 9},
+                {"+598", 8}, {"+592", 7}, {"+597", 7}
+
+            };
+
+                    if (digitosRequeridos.ContainsKey(codigo))
+                    {
+                        int digitosNecesarios = digitosRequeridos[codigo];
+                        if (numero.Length != digitosNecesarios)
+                        {
+                            ModelState.AddModelError("telefono", $"El número debe tener exactamente {digitosNecesarios} dígitos para {codigo}");
+                        }
+                    }
+                }
+            }
+
+            // Obtener el rol Cliente
+            var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre == "Cliente");
+
+            // Determinar si el rol seleccionado es Cliente
+            bool esRolCliente = (rolCliente != null && persona.rolid == rolCliente.rolid);
+
+            // Si es cliente, eliminamos la validación de password
+            if (esRolCliente)
+            {
+                ModelState.Remove("password");
+                password = null;
+            }
+            else
+            {
+                // Si no es cliente, validamos la contraseña SOLO si es requerida
+                var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
+
+                // Solo requerimos contraseña si NO existe un usuario previo
+                if(string.IsNullOrEmpty(password))
+                {
+                    ModelState.Remove("password");
+
+                }
+                else if(usuarioExistente == null && string.IsNullOrWhiteSpace(password))
+                {
+                    ModelState.AddModelError("password", "La contraseña es obligatoria para este rol.");
+                }
+                else if (!string.IsNullOrWhiteSpace(password) && password.Length < 8)
+                {
+                    ModelState.AddModelError("password", "La contraseña debe tener al menos 8 caracteres.");
+                }
+            }
+            // Validar correo único
+            bool correoExiste = await _context.persona
+                .AnyAsync(p => p.correo == persona.correo);
+
+            if (correoExiste)
+            {
+                ModelState.AddModelError("correo", "Este correo ya está registrado.");
+            }
 
             if (ModelState.IsValid)
             {
                 try
                 {
+                    // Actualizar la persona
                     _context.Update(persona);
-
-
                     await _context.SaveChangesAsync();
+
+                    // Manejar la tabla usuario según el rol
+                    if (esRolCliente)
+                    {
+                        // Si es cliente, eliminamos su usuario si existe
+                        var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
+                        if (usuarioExistente != null)
+                        {
+                            _context.usuario.Remove(usuarioExistente);
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+                    else
+                    {
+                        // Si no es cliente
+                        if (!string.IsNullOrWhiteSpace(password))
+                        {
+                            // Si proporcionó contraseña, actualizamos o creamos
+                            var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
+                            if (usuarioExistente != null)
+                            {
+                                // Actualizar contraseña existente
+                                usuarioExistente.password = password; // ⚠️ Recuerda encriptar
+                                _context.usuario.Update(usuarioExistente);
+                            }
+                            else
+                            {
+                                // Crear nuevo usuario
+                                var nuevoUsuario = new usuario
+                                {
+                                    personaid = persona.personaid,
+                                    password = password // ⚠️ Recuerda encriptar
+                                };
+                                _context.usuario.Add(nuevoUsuario);
+                            }
+                            await _context.SaveChangesAsync();
+                        }
+                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -110,12 +360,12 @@ namespace Coco_Beach.Controllers
                 return RedirectToAction(nameof(UsuarioIndex));
             }
 
+            // Si falló, recargar el SelectList
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
             return View(persona);
         }
 
         [AutenticationAttribute.Autenticacion]
-        // GET: Admin/Delete/5
         public async Task<IActionResult> UsuarioDelete(int? id)
         {
             if (id == null) return NotFound();
@@ -126,28 +376,23 @@ namespace Coco_Beach.Controllers
 
             if (persona == null) return NotFound();
 
+            // Opcional: evitar desactivar a alguien ya inactivo
+            if (!persona.estado) return RedirectToAction(nameof(UsuarioIndex));
+
             return View(persona);
         }
-
-        [AutenticationAttribute.Autenticacion]
         // POST: Admin/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
+        [AutenticationAttribute.Autenticacion]
+        [HttpPost]
+        [ActionName("DeleteConfirmed")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var usuario = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
-            if (usuario != null)
-            {
-                _context.usuario.Remove(usuario);
-            }
-
             var persona = await _context.persona.FindAsync(id);
-            if (persona != null)
-            {
-                _context.persona.Remove(persona);
-            }
+            if (persona == null) return NotFound();
 
+            persona.estado = false;
             await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(UsuarioIndex));
         }
 
@@ -303,9 +548,7 @@ namespace Coco_Beach.Controllers
             if (!fechaFin.HasValue)
                 fechaFin = DateTime.Now;
 
-            // Obtener datos de finanzas usando consultas LINQ
             var datosFinanzas = await ObtenerDatosFinanzas(fechaInicio.Value, fechaFin.Value);
-
             return View(datosFinanzas);
         }
 
@@ -315,7 +558,6 @@ namespace Coco_Beach.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Finanzas(DateTime fechaInicio, DateTime fechaFin)
         {
-            // Validar que las fechas sean correctas
             if (fechaInicio > fechaFin)
             {
                 TempData["ErrorMessage"] = "La fecha de inicio no puede ser mayor a la fecha de fin.";
@@ -326,26 +568,24 @@ namespace Coco_Beach.Controllers
             return View(datosFinanzas);
         }
 
-        // Método privado para obtener datos de finanzas
+        // Método privado para obtener datos de finanzas (ahora incluye TODOS los estados)
         private async Task<dynamic> ObtenerDatosFinanzas(DateTime fechaInicio, DateTime fechaFin)
         {
-            // CONVERTIR FECHAS A UTC PARA POSTGRESQL
-            // Especificar que las fechas son UTC
+            // Convertir a UTC para PostgreSQL
             var fechaInicioUtc = new DateTime(fechaInicio.Year, fechaInicio.Month, fechaInicio.Day, 0, 0, 0, DateTimeKind.Utc);
             var fechaFinUtc = new DateTime(fechaFin.Year, fechaFin.Month, fechaFin.Day, 23, 59, 59, DateTimeKind.Utc);
 
-            // Obtener todas las habitaciones con sus reservas en el rango de fechas
+            // Obtener todas las habitaciones
             var todasLasHabitaciones = await _context.recurso.ToListAsync();
 
-            // Obtener reservas en el rango de fechas (excluyendo estado "Disponible" que es el 3)
+            // Obtener reservas en el rango de fechas (SIN filtrar por estado)
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_inicio.HasValue &&
                             r.fecha_inicio.Value >= fechaInicioUtc &&
-                            r.fecha_inicio.Value <= fechaFinUtc &&
-                            r.estadoid != 3) // Excluir reservas con estado "Disponible"
+                            r.fecha_inicio.Value <= fechaFinUtc)
                 .ToListAsync();
 
-            // Agrupar reservas por recursoid y calcular estadísticas
+            // Agrupar por habitación
             var reservasPorHabitacion = reservasEnRango
                 .GroupBy(r => r.recursoid)
                 .Select(g => new
@@ -357,7 +597,7 @@ namespace Coco_Beach.Controllers
                 })
                 .ToDictionary(k => k.RecursoId, v => v);
 
-            // Construir el resultado combinando habitaciones con sus reservas
+            // Combinar habitaciones con sus reservas (incluye habitaciones sin reservas, pero luego se filtran)
             var resultado = todasLasHabitaciones.Select(hab => new
             {
                 hab.recursoid,
@@ -368,16 +608,14 @@ namespace Coco_Beach.Controllers
                 GananciasTotales = reservasPorHabitacion.ContainsKey(hab.recursoid) ? reservasPorHabitacion[hab.recursoid].GananciasTotales : 0,
                 PromedioDiasEstancia = reservasPorHabitacion.ContainsKey(hab.recursoid) ? reservasPorHabitacion[hab.recursoid].PromedioDiasEstancia : 0
             })
-            .Where(r => r.TotalReservas > 0) // Solo mostrar habitaciones con reservas
+            .Where(r => r.TotalReservas > 0)  // Solo mostrar habitaciones con al menos una reserva
             .OrderByDescending(r => r.GananciasTotales)
             .ToList();
 
-            // Calcular totales generales
             var totalGanancias = resultado.Sum(r => r.GananciasTotales);
             var totalReservas = resultado.Sum(r => r.TotalReservas);
             var totalHabitaciones = resultado.Count();
 
-            // Preparar datos para la vista (convertir fechas de vuelta a Local para mostrar)
             var viewData = new
             {
                 ResumenHabitaciones = resultado,
@@ -500,20 +738,86 @@ namespace Coco_Beach.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearClienteRapido([FromBody] PersonaCreateDto dto)
         {
+            // ── Campos obligatorios ──────────────────────────────────────────────
             if (string.IsNullOrWhiteSpace(dto.nombre))
                 return BadRequest(new { error = "El nombre es requerido." });
 
-            // Buscar rol "Cliente" — ajusta el rolid según tu BD
+            if (string.IsNullOrWhiteSpace(dto.apellido))
+                return BadRequest(new { error = "El apellido es requerido." });
+
+            if (string.IsNullOrWhiteSpace(dto.correo))
+                return BadRequest(new { error = "El correo es requerido." });
+
+            if (string.IsNullOrWhiteSpace(dto.telefono))
+                return BadRequest(new { error = "El teléfono es requerido." });
+
+            // ── Solo letras en nombre y apellido ────────────────────────────────
+            var soloLetras = new System.Text.RegularExpressions.Regex(
+                @"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$");
+
+            if (!soloLetras.IsMatch(dto.nombre.Trim()) || dto.nombre.Trim().Length < 2)
+                return BadRequest(new { error = "El nombre solo puede contener letras y debe tener al menos 2 caracteres." });
+
+            if (!soloLetras.IsMatch(dto.apellido.Trim()) || dto.apellido.Trim().Length < 2)
+                return BadRequest(new { error = "El apellido solo puede contener letras y debe tener al menos 2 caracteres." });
+
+            // ── Formato de correo ────────────────────────────────────────────────
+            var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+            if (!emailRegex.IsMatch(dto.correo))
+                return BadRequest(new { error = "El formato del correo no es válido." });
+
+            // ── Correo único ─────────────────────────────────────────────────────
+            bool correoExiste = await _context.persona.AnyAsync(p => p.correo == dto.correo);
+            if (correoExiste)
+                return BadRequest(new { error = "Este correo ya está registrado." });
+
+            // ── Teléfono: formato obligatorio +prefijo|numero ────────────────────
+            if (!dto.telefono.Contains("|"))
+                return BadRequest(new { error = "El teléfono debe tener el formato +prefijo|número." });
+
+            var partesTel = dto.telefono.Split('|');
+            if (partesTel.Length != 2
+                || string.IsNullOrWhiteSpace(partesTel[0])
+                || string.IsNullOrWhiteSpace(partesTel[1]))
+                return BadRequest(new { error = "El teléfono debe tener el formato +prefijo|número." });
+
+            string codigoPais = partesTel[0];
+            string numeroTelefono = partesTel[1];
+
+            if (!numeroTelefono.All(char.IsDigit))
+                return BadRequest(new { error = "El número de teléfono solo debe contener dígitos." });
+
+            var digitosRequeridos = new Dictionary<string, int>
+    {
+        {"+1", 10}, {"+52", 10},
+        {"+501", 7}, {"+502", 8}, {"+503", 8}, {"+504", 8},
+        {"+505", 8}, {"+506", 8}, {"+507", 8},
+        {"+53", 8}, {"+509", 8}, {"+1809", 10},
+        {"+1876", 10}, {"+1787", 10},
+        {"+54", 10}, {"+55", 11}, {"+56", 9},
+        {"+57", 10}, {"+58", 10}, {"+51", 9},
+        {"+591", 8}, {"+593", 9}, {"+595", 9},
+        {"+598", 8}, {"+592", 7}, {"+597", 7}
+    };
+
+            if (!digitosRequeridos.ContainsKey(codigoPais))
+                return BadRequest(new { error = $"Código de país '{codigoPais}' no reconocido." });
+
+            int digitosNecesarios = digitosRequeridos[codigoPais];
+            if (numeroTelefono.Length != digitosNecesarios)
+                return BadRequest(new { error = $"El número debe tener exactamente {digitosNecesarios} dígitos para {codigoPais}." });
+
+            // ── Crear persona ─────────────────────────────────────────────────────
             var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre.ToLower().Contains("cliente"));
 
             var nuevaPersona = new persona
             {
-                nombre = dto.nombre,
-                apellido = dto.apellido,
-                correo = dto.correo,
-                telefono = dto.telefono,
+                nombre = dto.nombre.Trim(),
+                apellido = dto.apellido.Trim(),
+                correo = dto.correo.Trim(),
+                telefono = dto.telefono,   // ya viene como +prefijo|numero desde el JS
                 rolid = rolCliente?.rolid,
-                estado = "Activo"
+                estado = true
             };
 
             _context.persona.Add(nuevaPersona);
@@ -533,9 +837,9 @@ namespace Coco_Beach.Controllers
         public class PersonaCreateDto
         {
             public string nombre { get; set; } = "";
-            public string? apellido { get; set; }
-            public string? correo { get; set; }
-            public string? telefono { get; set; }
+            public string apellido { get; set; } = "";
+            public string correo { get; set; } = "";
+            public string telefono { get; set; } = "";
         }
 
         // ==============================================
@@ -755,32 +1059,29 @@ namespace Coco_Beach.Controllers
             public double? preciofinal { get; set; }
         }
 
+        
+        // ==============================================
+        // DASHBOARD - INDICADORES Y DISPONIBILIDAD
+        // ==============================================
+
+        // GET: Admin/Dashboard
         [AutenticationAttribute.Autenticacion]
         public async Task<IActionResult> Dashboard(int? mes, int? anio)
         {
-            // Lógica del Filtro de Mes 
-            var hoy = DateTime.Today;
-            int mesFiltro = mes ?? hoy.Month;
-            int anioFiltro = anio ?? hoy.Year;
+            // Fecha actual en UTC
+            var hoyUtc = DateTime.UtcNow.Date;
+            int mesFiltro = mes ?? hoyUtc.Month;
+            int anioFiltro = anio ?? hoyUtc.Year;
 
-            // Rango del mes para KPIs
-            var inicioMes = DateTime.SpecifyKind(new DateTime(anioFiltro, mesFiltro, 1), DateTimeKind.Utc);
-            var finMes = inicioMes.AddMonths(1).AddDays(-1).AddHours(23).AddMinutes(59);
+            // Rango del mes (UTC)
+            var inicioMesUtc = new DateTime(anioFiltro, mesFiltro, 1, 0, 0, 0, DateTimeKind.Utc);
+            var finMesUtc = inicioMesUtc.AddMonths(1).AddSeconds(-1);
 
-      
-            var inicioHoy = DateTime.SpecifyKind(hoy, DateTimeKind.Utc);
-            var finHoy = inicioHoy.AddDays(1).AddTicks(-1);
+            // Rango del día actual (UTC)
+            var inicioHoyUtc = hoyUtc;
+            var finHoyUtc = inicioHoyUtc.AddDays(1).AddTicks(-1);
 
-            ViewBag.MesFiltro = mesFiltro;
-            ViewBag.AnioFiltro = anioFiltro;
-
-            var meses = Enumerable.Range(1, 12).Select(m => new {
-                Value = m,
-                Text = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
-            });
-            ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
-
-            // 2. IDs de Estados
+            // Obtener IDs de estados
             var estados = await _context.estado.ToListAsync();
             int idDisponible = estados.FirstOrDefault(e => e.nombre == "Disponible")?.estadoid ?? 0;
             int idReservada = estados.FirstOrDefault(e => e.nombre == "Reservado")?.estadoid ?? 0;
@@ -788,35 +1089,54 @@ namespace Coco_Beach.Controllers
 
             ViewBag.IdReservada = idReservada;
             ViewBag.IdEnProceso = idEnProceso;
+            ViewBag.MesFiltro = mesFiltro;
+            ViewBag.AnioFiltro = anioFiltro;
 
-            // KPIs del Mes
+            // Lista de meses para el filtro
+            var meses = Enumerable.Range(1, 12).Select(m => new
+            {
+                Value = m,
+                Text = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+            });
+            ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
+
+            // ===== KPIs del MES (incluyendo TODOS los estados) =====
             var reservasMesQuery = _context.reserva
-                .Where(r => r.fecha_inicio >= inicioMes && r.fecha_inicio <= finMes && r.estadoid != idDisponible);
+                .Where(r => r.fecha_inicio.HasValue &&
+                            r.fecha_inicio.Value >= inicioMesUtc &&
+                            r.fecha_inicio.Value <= finMesUtc);
+            // ❌ Ya no filtramos por estado (antes estaba && r.estadoid != idDisponible)
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
-            ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal) ?? 0;
+            ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal ?? 0);
 
-            // Filtrado por mes
-            ViewBag.RankingHabitaciones = await (from res in _context.reserva
-                                                 join rec in _context.recurso on res.recursoid equals rec.recursoid
-                                                 where res.fecha_inicio >= inicioMes && res.fecha_inicio <= finMes && res.estadoid != idDisponible
-                                                 group res by new { rec.nombre } into grupo
-                                                 select new
-                                                 {
-                                                     Nombre = grupo.Key.nombre,
-                                                     Reservas = grupo.Count(),
-                                                     Ganancias = grupo.Sum(x => x.preciofinal) ?? 0
-                                                 })
-                                                 .OrderByDescending(x => x.Ganancias)
-                                                 .ToListAsync();
+            // ===== Ranking de habitaciones (incluye TODOS los estados) =====
+            var rankingQuery = from res in _context.reserva
+                               join rec in _context.recurso on res.recursoid equals rec.recursoid
+                               where res.fecha_inicio.HasValue &&
+                                     res.fecha_inicio.Value >= inicioMesUtc &&
+                                     res.fecha_inicio.Value <= finMesUtc
+                               group res by new { rec.nombre } into grupo
+                               select new
+                               {
+                                   Nombre = grupo.Key.nombre,
+                                   Reservas = grupo.Count(),
+                                   Ganancias = grupo.Sum(x => x.preciofinal ?? 0)
+                               };
 
+            ViewBag.RankingHabitaciones = await rankingQuery
+                .OrderByDescending(x => x.Ganancias)
+                .ToListAsync();
 
-        
+            // ===== Estado actual de cada habitación (hoy) =====
+            // Determinamos el estado según la reserva activa de hoy (si existe)
             var estadoHabitaciones = await (from rec in _context.recurso
-                                            join res in _context.reserva.Where(r => r.fecha_inicio <= finHoy && r.fecha_fin >= inicioHoy)
+                                            join res in _context.reserva.Where(r =>
+                                                r.fecha_inicio.HasValue && r.fecha_fin.HasValue &&
+                                                r.fecha_inicio.Value <= finHoyUtc &&
+                                                r.fecha_fin.Value >= inicioHoyUtc)
                                             on rec.recursoid equals res.recursoid into joinReserva
                                             from subRes in joinReserva.DefaultIfEmpty()
-                                   
                                             group subRes by new { rec.recursoid, rec.nombre } into grupo
                                             select new
                                             {
@@ -825,8 +1145,8 @@ namespace Coco_Beach.Controllers
                                                                  ? grupo.Where(x => x != null).Min(x => x.estadoid)
                                                                  : idDisponible
                                             })
-                .OrderBy(x => x.Nombre)
-                .ToListAsync();
+                                            .OrderBy(x => x.Nombre)
+                                            .ToListAsync();
 
             ViewBag.ListaHabitaciones = estadoHabitaciones;
 

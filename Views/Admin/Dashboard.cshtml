@@ -58,12 +58,12 @@
 
     <div class="cb-card mb-5 shadow-sm border-0" style="border-radius: 20px; background: white; overflow: hidden;">
         <div class="p-4">
-            <h5 class="mb-3 fw-bold" style="color: #475569;">Rendimiento por cada habitación</h5>
+            <h5 class="mb-3 fw-bold" style="color: #475569;">Rendimiento por cada espacio</h5>
             <div class="table-responsive" style="border-radius: 12px; overflow: hidden;">
                 <table class="table mb-0">
                     <thead style="background: #29b6d2; color: white;">
                         <tr>
-                            <th class="py-3 px-4 border-0">HABITACIÓN</th>
+                            <th class="py-3 px-4 border-0">RECURSO</th>
                             <th class="py-3 text-center border-0">RESERVAS</th>
                             <th class="py-3 text-end px-4 border-0">GANANCIAS</th>
                         </tr>
@@ -73,8 +73,13 @@
                         {
                             foreach (var item in ViewBag.RankingHabitaciones)
                             {
+                                // Determinar si el nombre empieza con "Rancho" (insensible a mayúsculas)
+                                string nombreHabitacion = item.Nombre.ToString();
+                                bool esRancho = nombreHabitacion.StartsWith("Rancho", StringComparison.OrdinalIgnoreCase);
+                                string nombreConEmoji = esRancho ? "🏡 " + nombreHabitacion : nombreHabitacion;
+
                                 <tr style="vertical-align: middle; border-bottom: 1px solid #eee;">
-                                    <td class="py-3 px-4 fw-bold" style="color: #475569;">@item.Nombre</td>
+                                    <td class="py-3 px-4 fw-bold" style="color: #475569;">@nombreConEmoji</td>
                                     <td class="py-3 text-center fw-bold">@item.Reservas</td>
                                     <td class="py-3 text-end px-4 fw-bold text-primary">$@item.Ganancias.ToString("N0")</td>
                                 </tr>
@@ -121,8 +126,13 @@
                     string clase = hab.EstadoIdActual == ViewBag.IdReservada ? "cine-reservada" :
                     (hab.EstadoIdActual == ViewBag.IdEnProceso ? "cine-proceso" : "cine-disponible");
 
+                    // También aquí agregamos el emoji si el nombre empieza con "Rancho"
+                    string nombreHab = hab.Nombre.ToString();
+                    bool esRanchoGrid = nombreHab.StartsWith("Rancho", StringComparison.OrdinalIgnoreCase);
+                    string nombreConEmojiGrid = esRanchoGrid ? "🏡 " + nombreHab : nombreHab;
+
                     <div class="cine-item @clase">
-                        <span class="cine-name">@hab.Nombre</span>
+                        <span class="cine-name">@nombreConEmojiGrid</span>
                         <div class="cine-bar"></div>
                     </div>
                 }

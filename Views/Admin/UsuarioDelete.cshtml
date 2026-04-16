@@ -12,8 +12,8 @@
         <div class="d-flex align-items-center">
             <i class="bi bi-person-x-fill cb-page-header-icon"></i>
             <div>
-                <h2>@ViewData["Title"]</h2>
-                <p>Esta acción no se puede deshacer. Verifica los datos antes de continuar.</p>
+                <h2>Desactivar Usuario</h2>
+  
             </div>
         </div>
         <a asp-action="UsuarioIndex" class="cb-btn cb-btn-volver">
@@ -28,7 +28,7 @@
             <!-- Alerta de advertencia -->
             <div class="cb-alert cb-alert-danger mb-4">
                 <i class="bi bi-exclamation-triangle-fill" style="font-size:18px;"></i>
-                <span>¿Estás seguro de que deseas eliminar este usuario?</span>
+                <span>¿Estás seguro de que deseas desactivar este usuario?</span>
             </div>
 
             <!-- Datos del usuario -->
@@ -47,11 +47,11 @@
             </div>
 
             <!-- Acciones -->
-            <form asp-action="UsuarioDelete" method="post">
-                <input type="hidden" asp-for="personaid" />
+            <form asp-action="DeleteConfirmed" asp-controller="Admin" method="post">
+                <input type="hidden" asp-for="personaid" name="id" />
                 <div class="d-flex gap-3 mt-4">
                     <button type="submit" class="cb-btn cb-btn-danger" style="background-color: var(--cb-danger); color:#fff; border:none;">
-                        <i class="bi bi-trash-fill"></i> Sí, eliminar
+                        <i class="bi bi-person-slash"></i> Sí, desactivar
                     </button>
                     <a asp-action="UsuarioIndex" class="cb-btn cb-btn-outline">
                         Cancelar
