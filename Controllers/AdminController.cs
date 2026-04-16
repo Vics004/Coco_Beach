@@ -548,9 +548,7 @@ namespace Coco_Beach.Controllers
             if (!fechaFin.HasValue)
                 fechaFin = DateTime.Now;
 
-            // Obtener datos de finanzas usando consultas LINQ
             var datosFinanzas = await ObtenerDatosFinanzas(fechaInicio.Value, fechaFin.Value);
-
             return View(datosFinanzas);
         }
 
@@ -560,7 +558,6 @@ namespace Coco_Beach.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Finanzas(DateTime fechaInicio, DateTime fechaFin)
         {
-            // Validar que las fechas sean correctas
             if (fechaInicio > fechaFin)
             {
                 TempData["ErrorMessage"] = "La fecha de inicio no puede ser mayor a la fecha de fin.";
@@ -571,26 +568,24 @@ namespace Coco_Beach.Controllers
             return View(datosFinanzas);
         }
 
-        // Método privado para obtener datos de finanzas
+        // Método privado para obtener datos de finanzas (ahora incluye TODOS los estados)
         private async Task<dynamic> ObtenerDatosFinanzas(DateTime fechaInicio, DateTime fechaFin)
         {
-            // CONVERTIR FECHAS A UTC PARA POSTGRESQL
-            // Especificar que las fechas son UTC
+            // Convertir a UTC para PostgreSQL
             var fechaInicioUtc = new DateTime(fechaInicio.Year, fechaInicio.Month, fechaInicio.Day, 0, 0, 0, DateTimeKind.Utc);
             var fechaFinUtc = new DateTime(fechaFin.Year, fechaFin.Month, fechaFin.Day, 23, 59, 59, DateTimeKind.Utc);
 
-            // Obtener todas las habitaciones con sus reservas en el rango de fechas
+            // Obtener todas las habitaciones
             var todasLasHabitaciones = await _context.recurso.ToListAsync();
 
-            // Obtener reservas en el rango de fechas (excluyendo estado "Disponible" que es el 3)
+            // Obtener reservas en el rango de fechas (SIN filtrar por estado)
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_inicio.HasValue &&
                             r.fecha_inicio.Value >= fechaInicioUtc &&
-                            r.fecha_inicio.Value <= fechaFinUtc &&
-                            r.estadoid != 3) // Excluir reservas con estado "Disponible"
+                            r.fecha_inicio.Value <= fechaFinUtc)
                 .ToListAsync();
 
-            // Agrupar reservas por recursoid y calcular estadísticas
+            // Agrupar por habitación
             var reservasPorHabitacion = reservasEnRango
                 .GroupBy(r => r.recursoid)
                 .Select(g => new
@@ -602,7 +597,7 @@ namespace Coco_Beach.Controllers
                 })
                 .ToDictionary(k => k.RecursoId, v => v);
 
-            // Construir el resultado combinando habitaciones con sus reservas
+            // Combinar habitaciones con sus reservas (incluye habitaciones sin reservas, pero luego se filtran)
             var resultado = todasLasHabitaciones.Select(hab => new
             {
                 hab.recursoid,
@@ -613,16 +608,14 @@ namespace Coco_Beach.Controllers
                 GananciasTotales = reservasPorHabitacion.ContainsKey(hab.recursoid) ? reservasPorHabitacion[hab.recursoid].GananciasTotales : 0,
                 PromedioDiasEstancia = reservasPorHabitacion.ContainsKey(hab.recursoid) ? reservasPorHabitacion[hab.recursoid].PromedioDiasEstancia : 0
             })
-            .Where(r => r.TotalReservas > 0) // Solo mostrar habitaciones con reservas
+            .Where(r => r.TotalReservas > 0)  // Solo mostrar habitaciones con al menos una reserva
             .OrderByDescending(r => r.GananciasTotales)
             .ToList();
 
-            // Calcular totales generales
             var totalGanancias = resultado.Sum(r => r.GananciasTotales);
             var totalReservas = resultado.Sum(r => r.TotalReservas);
             var totalHabitaciones = resultado.Count();
 
-            // Preparar datos para la vista (convertir fechas de vuelta a Local para mostrar)
             var viewData = new
             {
                 ResumenHabitaciones = resultado,
@@ -1066,32 +1059,29 @@ namespace Coco_Beach.Controllers
             public double? preciofinal { get; set; }
         }
 
+        
+        // ==============================================
+        // DASHBOARD - INDICADORES Y DISPONIBILIDAD
+        // ==============================================
+
+        // GET: Admin/Dashboard
         [AutenticationAttribute.Autenticacion]
         public async Task<IActionResult> Dashboard(int? mes, int? anio)
         {
-            // Lógica del Filtro de Mes 
-            var hoy = DateTime.Today;
-            int mesFiltro = mes ?? hoy.Month;
-            int anioFiltro = anio ?? hoy.Year;
+            // Fecha actual en UTC
+            var hoyUtc = DateTime.UtcNow.Date;
+            int mesFiltro = mes ?? hoyUtc.Month;
+            int anioFiltro = anio ?? hoyUtc.Year;
 
-            // Rango del mes para KPIs
-            var inicioMes = DateTime.SpecifyKind(new DateTime(anioFiltro, mesFiltro, 1), DateTimeKind.Utc);
-            var finMes = inicioMes.AddMonths(1).AddDays(-1).AddHours(23).AddMinutes(59);
+            // Rango del mes (UTC)
+            var inicioMesUtc = new DateTime(anioFiltro, mesFiltro, 1, 0, 0, 0, DateTimeKind.Utc);
+            var finMesUtc = inicioMesUtc.AddMonths(1).AddSeconds(-1);
 
-      
-            var inicioHoy = DateTime.SpecifyKind(hoy, DateTimeKind.Utc);
-            var finHoy = inicioHoy.AddDays(1).AddTicks(-1);
+            // Rango del día actual (UTC)
+            var inicioHoyUtc = hoyUtc;
+            var finHoyUtc = inicioHoyUtc.AddDays(1).AddTicks(-1);
 
-            ViewBag.MesFiltro = mesFiltro;
-            ViewBag.AnioFiltro = anioFiltro;
-
-            var meses = Enumerable.Range(1, 12).Select(m => new {
-                Value = m,
-                Text = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
-            });
-            ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
-
-            // 2. IDs de Estados
+            // Obtener IDs de estados
             var estados = await _context.estado.ToListAsync();
             int idDisponible = estados.FirstOrDefault(e => e.nombre == "Disponible")?.estadoid ?? 0;
             int idReservada = estados.FirstOrDefault(e => e.nombre == "Reservado")?.estadoid ?? 0;
@@ -1099,35 +1089,54 @@ namespace Coco_Beach.Controllers
 
             ViewBag.IdReservada = idReservada;
             ViewBag.IdEnProceso = idEnProceso;
+            ViewBag.MesFiltro = mesFiltro;
+            ViewBag.AnioFiltro = anioFiltro;
 
-            // KPIs del Mes
+            // Lista de meses para el filtro
+            var meses = Enumerable.Range(1, 12).Select(m => new
+            {
+                Value = m,
+                Text = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+            });
+            ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
+
+            // ===== KPIs del MES (incluyendo TODOS los estados) =====
             var reservasMesQuery = _context.reserva
-                .Where(r => r.fecha_inicio >= inicioMes && r.fecha_inicio <= finMes && r.estadoid != idDisponible);
+                .Where(r => r.fecha_inicio.HasValue &&
+                            r.fecha_inicio.Value >= inicioMesUtc &&
+                            r.fecha_inicio.Value <= finMesUtc);
+            // ❌ Ya no filtramos por estado (antes estaba && r.estadoid != idDisponible)
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
-            ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal) ?? 0;
+            ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal ?? 0);
 
-            // Filtrado por mes
-            ViewBag.RankingHabitaciones = await (from res in _context.reserva
-                                                 join rec in _context.recurso on res.recursoid equals rec.recursoid
-                                                 where res.fecha_inicio >= inicioMes && res.fecha_inicio <= finMes && res.estadoid != idDisponible
-                                                 group res by new { rec.nombre } into grupo
-                                                 select new
-                                                 {
-                                                     Nombre = grupo.Key.nombre,
-                                                     Reservas = grupo.Count(),
-                                                     Ganancias = grupo.Sum(x => x.preciofinal) ?? 0
-                                                 })
-                                                 .OrderByDescending(x => x.Ganancias)
-                                                 .ToListAsync();
+            // ===== Ranking de habitaciones (incluye TODOS los estados) =====
+            var rankingQuery = from res in _context.reserva
+                               join rec in _context.recurso on res.recursoid equals rec.recursoid
+                               where res.fecha_inicio.HasValue &&
+                                     res.fecha_inicio.Value >= inicioMesUtc &&
+                                     res.fecha_inicio.Value <= finMesUtc
+                               group res by new { rec.nombre } into grupo
+                               select new
+                               {
+                                   Nombre = grupo.Key.nombre,
+                                   Reservas = grupo.Count(),
+                                   Ganancias = grupo.Sum(x => x.preciofinal ?? 0)
+                               };
 
+            ViewBag.RankingHabitaciones = await rankingQuery
+                .OrderByDescending(x => x.Ganancias)
+                .ToListAsync();
 
-        
+            // ===== Estado actual de cada habitación (hoy) =====
+            // Determinamos el estado según la reserva activa de hoy (si existe)
             var estadoHabitaciones = await (from rec in _context.recurso
-                                            join res in _context.reserva.Where(r => r.fecha_inicio <= finHoy && r.fecha_fin >= inicioHoy)
+                                            join res in _context.reserva.Where(r =>
+                                                r.fecha_inicio.HasValue && r.fecha_fin.HasValue &&
+                                                r.fecha_inicio.Value <= finHoyUtc &&
+                                                r.fecha_fin.Value >= inicioHoyUtc)
                                             on rec.recursoid equals res.recursoid into joinReserva
                                             from subRes in joinReserva.DefaultIfEmpty()
-                                   
                                             group subRes by new { rec.recursoid, rec.nombre } into grupo
                                             select new
                                             {
@@ -1136,8 +1145,8 @@ namespace Coco_Beach.Controllers
                                                                  ? grupo.Where(x => x != null).Min(x => x.estadoid)
                                                                  : idDisponible
                                             })
-                .OrderBy(x => x.Nombre)
-                .ToListAsync();
+                                            .OrderBy(x => x.Nombre)
+                                            .ToListAsync();
 
             ViewBag.ListaHabitaciones = estadoHabitaciones;
 

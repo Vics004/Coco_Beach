@@ -13,7 +13,7 @@
             <i class="bi bi-pencil-square cb-page-header-icon"></i>
             <div>
                 <h2>@ViewData["Title"]</h2>
-                <p>Modifica la información de la habitación</p>
+                <p>Modifica la información del espacio</p>
             </div>
         </div>
         <a asp-action="RecursoIndex" class="cb-btn cb-btn-volver">
@@ -32,7 +32,7 @@
                 <div class="row g-4">
 
                     <div class="col-md-6">
-                        <label asp-for="nombre" class="cb-label">Nombre de la Habitación</label>
+                        <label asp-for="nombre" class="cb-label">Nombre del espacio</label>
                         <input asp-for="nombre" class="cb-form-control" />
                         <span asp-validation-for="nombre" class="text-danger" style="font-size:12px;"></span>
                     </div>
@@ -70,7 +70,7 @@
 
                 <div class="d-flex gap-3">
                     <button type="submit" class="cb-btn cb-btn-primary">
-                        <i class="bi bi-check-lg"></i> Actualizar Habitación
+                        <i class="bi bi-check-lg"></i> Actualizar Espacio
                     </button>
                     <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline">
                         Cancelar

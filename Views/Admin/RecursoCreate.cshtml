@@ -31,7 +31,7 @@
                 <div class="row g-4">
 
                     <div class="col-md-6">
-                        <label asp-for="nombre" class="cb-label">Nombre de la Habitación</label>
+                        <label asp-for="nombre" class="cb-label">Nombre del Recurso</label>
                         <input asp-for="nombre" class="cb-form-control" placeholder="Ej. Suite Presidencial, Habitación Doble" />
                         <span asp-validation-for="nombre" class="text-danger" style="font-size:12px;"></span>
                     </div>
@@ -60,7 +60,7 @@
 
                 <div class="d-flex gap-3">
                     <button type="submit" class="cb-btn cb-btn-primary">
-                        <i class="bi bi-save-fill"></i> Guardar Habitación
+                        <i class="bi bi-save-fill"></i> Guardar Recurso
                     </button>
                     <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline">
                         Cancelar

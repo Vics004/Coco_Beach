@@ -1413,8 +1413,8 @@
     // =========================================
     const TIPO_CAL = '@tipoCalendario';
     const RECURSOS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                                                                                                                                Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad })
-                                                                ));
+        Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad })
+    ));
 
     // =========================================
     // ESTADO GLOBAL
@@ -1571,16 +1571,12 @@
     // =========================================
     // DISPONIBILIDAD POR CELDA
     // =========================================
-    // Devuelve: 'libre' | 'bloqueado' | 'checkout'
-    // - bloqueado: hay una reserva activa que ocupa ese día (sin ser su último día)
-    // - checkout:  ese día es SOLO día de fin de una reserva (sale, entra otra posible)
-    // - libre:     sin reservas
     function calcularDisponibilidadCelda(recursoid, fecha) {
         const reservasRecurso = todasLasReservas.filter(r =>
             r.recursoid === recursoid && r.estadoid !== 3
         );
 
-        const fechaStr = formatDate(fecha); // 'YYYY-MM-DD'
+        const fechaStr = formatDate(fecha);
 
         let esBloqueado = false;
         let esCheckout = false;
@@ -1589,28 +1585,20 @@
             const ini = new Date(r.fecha_inicio);
             const fin = new Date(r.fecha_fin);
 
-            // Día de inicio de esta reserva (YYYY-MM-DD, ignorando hora)
             const iniStr = formatDate(ini);
-            // Día de fin de esta reserva
             const finStr = formatDate(fin);
 
             if (fechaStr === finStr) {
-                // Este día es checkout de esta reserva → disponible desde las 3pm
                 esCheckout = true;
-                // No es bloqueado por esta reserva (la persona ya se fue)
                 continue;
             }
 
             if (fechaStr > iniStr && fechaStr < finStr) {
-                // Día intermedio: completamente ocupado
                 esBloqueado = true;
                 break;
             }
 
             if (fechaStr === iniStr) {
-                // Día de check-in: ocupado desde las 3pm
-                // Si otro huésped hace checkout hoy, hay ventana posible,
-                // pero este día ya tiene check-in así que bloqueamos
                 esBloqueado = true;
                 break;
             }
@@ -1621,7 +1609,6 @@
         return 'libre';
     }
 
-    // Re-aplicar disponibilidad en el grid tras cargar reservas
     function aplicarDisponibilidadEnGrid() {
         const año = mesActual.getFullYear();
         const mes = mesActual.getMonth();
@@ -1643,16 +1630,13 @@
                 const disp = calcularDisponibilidadCelda(recurso.recursoid, fecha);
                 cell.dataset.disp = disp;
 
-                // Limpiar clases de disponibilidad previas
                 cell.classList.remove('cell-bloqueada', 'cell-checkout', 'cell-pasado');
 
-                // Limpiar listeners y elementos internos dinámicos
                 const viejoAddBtn = cell.querySelector('.cell-add-btn');
                 const viejoTag = cell.querySelector('.cell-checkout-tag');
                 if (viejoAddBtn) viejoAddBtn.remove();
                 if (viejoTag) viejoTag.remove();
 
-                // Clonar para eliminar event listeners anteriores
                 const nuevoCell = cell.cloneNode(false);
                 nuevoCell.dataset.fecha = fechaStr;
                 nuevoCell.dataset.recursoid = recurso.recursoid;
@@ -1703,28 +1687,24 @@
             const resp = await fetch(`/Admin/GetReservas?fechaInicio=${inicio}&fechaFin=${fin}&tipo=${TIPO_CAL}`);
             todasLasReservas = await resp.json();
 
-            // AUTO-DISPONIBLE: Si fecha_fin ya pasó la hora de checkout (1:00 PM),
-            // marcar automáticamente como Disponible (estadoid=3) en el servidor.
             const ahora = new Date();
             const vencidas = todasLasReservas.filter(r => {
-                if (r.estadoid === 3) return false; // ya está disponible
+                if (r.estadoid === 3) return false;
                 if (!r.fecha_fin) return false;
                 const fin = new Date(r.fecha_fin);
-                // Hora de checkout fija: 13:00 (1pm). Usar la fecha de fin pero forzar 13:00 hora local
                 const checkout = new Date(fin);
                 checkout.setHours(13, 0, 0, 0);
                 return ahora >= checkout;
             });
 
-            // Enviar cambios de estado al servidor en paralelo (sin bloquear el render)
             if (vencidas.length > 0) {
                 vencidas.forEach(r => {
-                    r.estadoid = 3; // actualizar local inmediatamente
+                    r.estadoid = 3;
                     fetch('/Admin/CambiarEstadoReserva', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ reservaid: r.reservaid, estadoid: 3 })
-                    }).catch(() => {}); // silenciar errores de red, el render no depende de esto
+                    }).catch(() => {});
                 });
             }
 
@@ -1740,7 +1720,6 @@
     // RENDER PÍLDORAS
     // =========================================
     function renderPildoras(reservas) {
-        // Limpiar píldoras anteriores
         document.querySelectorAll('.cal-pill').forEach(p => p.remove());
 
         const año = mesActual.getFullYear();
@@ -1749,8 +1728,6 @@
         const primero = new Date(año, mes, 1);
         const ultimo = new Date(año, mes, diasEnMes, 23, 59, 59);
 
-        // Agrupar por fila para detectar superposiciones y apilar verticalmente
-        // rowSlots: { recursoid -> lista de {diaIni, diaFin} ya ocupados por píldora }
         const rowSlots = {};
 
         reservas.forEach(r => {
@@ -1760,7 +1737,6 @@
             let inicio = new Date(r.fecha_inicio);
             let fin = new Date(r.fecha_fin);
 
-            // Clamp al mes visible
             const iniVis = inicio < primero ? primero : inicio;
             const finVis = fin > ultimo ? ultimo : fin;
 
@@ -1770,12 +1746,9 @@
 
             if (duracion <= 0) return;
 
-            // Determinar en qué "carril" vertical colocar esta píldora
-            // para evitar superposición con otras de la misma fila
             if (!rowSlots[r.recursoid]) rowSlots[r.recursoid] = [];
             const slots = rowSlots[r.recursoid];
 
-            // Buscar el primer carril donde no haya solapamiento
             let carril = 0;
             let encontrado = false;
             while (!encontrado) {
@@ -1788,32 +1761,24 @@
             }
             slots.push({ diaIni, diaFin, carril });
 
-            // Altura de la píldora y espaciado por carril
             const pillH = 28;
             const pillGap = 4;
-            const rowH = 64; // --cal-row-h
-            // Centrar el grupo de carriles verticalmente dentro de la fila
-            // Para carril 0 con un solo elemento: centrado (top 50%)
-            // Para múltiples carriles: apilados desde arriba con padding
+            const rowH = 64;
             const totalCarriles = Math.max(...slots.map(s => s.carril)) + 1;
             const totalAltoPills = totalCarriles * pillH + (totalCarriles - 1) * pillGap;
             const offsetBase = (rowH - totalAltoPills) / 2;
             const topPx = offsetBase + carril * (pillH + pillGap);
 
             const pill = document.createElement('div');
-            const estadoClass = [1,2].includes(r.estadoid)
-                ? `estado-${r.estadoid}` : 'estado-otro';
+            const estadoClass = [1,2].includes(r.estadoid) ? `estado-${r.estadoid}` : 'estado-otro';
             pill.className = `cal-pill ${estadoClass}`;
             pill.style.left = ((diaIni - 1) * 44 + 3) + 'px';
             pill.style.width = (duracion * 44 - 6) + 'px';
             pill.style.top = topPx + 'px';
-            pill.style.transform = 'none'; // override el translateY(-50%) del CSS
+            pill.style.transform = 'none';
             pill.style.height = pillH + 'px';
 
-            const nombre = r.cliente
-                ? `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim()
-                : `Reserva #${r.reservaid}`;
-
+            const nombre = r.cliente ? `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim() : `Reserva #${r.reservaid}`;
             pill.innerHTML = `<span class="cal-pill-text">${nombre}</span>`;
             pill.dataset.reservaid = r.reservaid;
 
@@ -1834,9 +1799,7 @@
     function mostrarPopover(r, pillEl) {
         reservaActualEnPopover = r;
         const popover = document.getElementById('calPopover');
-        const nombre = r.cliente
-            ? `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim()
-            : '—';
+        const nombre = r.cliente ? `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim() : '—';
 
         document.getElementById('popHuesped').textContent = nombre || '—';
         document.getElementById('popTelefono').textContent = r.cliente?.telefono || '—';
@@ -1845,12 +1808,9 @@
         const fi = new Date(r.fecha_inicio).toLocaleDateString('es-SV');
         const ff = new Date(r.fecha_fin).toLocaleDateString('es-SV');
         document.getElementById('popFechas').textContent = `${fi} → ${ff}`;
-        document.getElementById('popPrecio').textContent =
-            r.preciofinal != null ? `$${Number(r.preciofinal).toFixed(2)}` : '—';
+        document.getElementById('popPrecio').textContent = r.preciofinal != null ? `$${Number(r.preciofinal).toFixed(2)}` : '—';
 
         const estados = {1:'Reservado', 2:'En proceso de reserva', 3:'Disponible'};
-
-        // Badge de estado
         const badge = document.getElementById('popEstadoBadge');
         const coloresBadge = {
             1: 'background:var(--cb-primary-pale);color:var(--cb-primary-dark)',
@@ -1860,21 +1820,17 @@
         badge.style.cssText = coloresBadge[r.estadoid] ?? 'background:#EEF2F4;color:#5A7280';
         badge.textContent = estados[r.estadoid] ?? '—';
 
-        // Marcar botón activo del estado actual
         document.querySelectorAll('.pop-estado-btn').forEach(btn => {
             const bid = parseInt(btn.dataset.estadoid);
             btn.classList.toggle('activo', bid === r.estadoid);
         });
 
-        // Limpiar feedback previo
         const fb = document.getElementById('popEstadoFeedback');
         fb.style.display = 'none';
         fb.textContent = '';
 
-        document.getElementById('popLinkExportar').href =
-            `/Admin/ExportarICS/${r.recursoid}`;
+        document.getElementById('popLinkExportar').href = `/Admin/ExportarICS/${r.recursoid}`;
 
-        // Posicionar
         popover.style.display = 'block';
         const rect = pillEl.getBoundingClientRect();
         let top = rect.bottom + 8;
@@ -1888,7 +1844,6 @@
         popover.style.left = left + 'px';
     }
 
-    // Cambio de estado desde popover
     document.querySelectorAll('.pop-estado-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (!reservaActualEnPopover) return;
@@ -1906,12 +1861,8 @@
                 });
 
                 if (resp.ok) {
-                    // Actualizar objeto local
                     reservaActualEnPopover.estadoid = nuevoEstado;
-
-                    // Actualizar badge y estado en el popover
                     const estados = {1:'Reservado', 2:'En proceso de reserva', 3:'Disponible'};
-
                     const coloresBadge = {
                         1: 'background:var(--cb-primary-pale);color:var(--cb-primary-dark)',
                         2: 'background:#FFF4E0;color:#A36B00',
@@ -1920,18 +1871,12 @@
                     const badge = document.getElementById('popEstadoBadge');
                     badge.style.cssText = coloresBadge[nuevoEstado] ?? '';
                     badge.textContent = estados[nuevoEstado];
-
-                    // Marcar nuevo activo
                     document.querySelectorAll('.pop-estado-btn').forEach(b => {
                         b.classList.toggle('activo', parseInt(b.dataset.estadoid) === nuevoEstado);
                     });
-
-                    // Feedback visual
                     fb.innerHTML = `<i class="bi bi-check-circle-fill"></i> Estado actualizado`;
                     fb.style.display = 'flex';
                     setTimeout(() => { fb.style.display = 'none'; }, 2500);
-
-                    // Re-render píldoras para que cambie el color
                     await cargarReservas();
                 } else {
                     const err = await resp.json();
@@ -1947,7 +1892,7 @@
         });
     });
 
-    document.getElementById('btnCerrarPopover').addEventListener('click', () => {
+    document.getElementById('btnCerrarPopover')?.addEventListener('click', () => {
         document.getElementById('calPopover').style.display = 'none';
     });
 
@@ -1967,38 +1912,35 @@
     }
 
     function calcularPrecio() {
-        const fi = document.getElementById('modalFechaInicio').value;
-        const ff = document.getElementById('modalFechaFin').value;
-        const recursoid = document.getElementById('modalRecursoid').value;
+        const fi = document.getElementById('modalFechaInicio')?.value;
+        const ff = document.getElementById('modalFechaFin')?.value;
+        const recursoid = document.getElementById('modalRecursoid')?.value;
         const infoEl = document.getElementById('modalPrecioInfo');
         const infoTexto = document.getElementById('modalPrecioInfoTexto');
         const precioInput = document.getElementById('modalPrecio');
 
-        if (!fi || !ff) { infoEl.style.display = 'none'; return; }
+        if (!fi || !ff || !recursoid) { if(infoEl) infoEl.style.display = 'none'; return; }
 
         const inicio = new Date(fi);
         const fin = new Date(ff);
         const dias = Math.round((fin - inicio) / (1000 * 60 * 60 * 24));
 
-        if (dias <= 0) { infoEl.style.display = 'none'; return; }
+        if (dias <= 0) { if(infoEl) infoEl.style.display = 'none'; return; }
 
         const precioPorNoche = getPrecioRecurso(recursoid);
         const total = dias * precioPorNoche;
 
-        infoTexto.textContent = `${dias} ${dias === 1 ? 'día' : 'días'} × $${precioPorNoche.toFixed(2)}/noche = $${total.toFixed(2)}`;
-        infoEl.style.display = 'flex';
+        if(infoTexto) infoTexto.textContent = `${dias} ${dias === 1 ? 'día' : 'días'} × $${precioPorNoche.toFixed(2)}/noche = $${total.toFixed(2)}`;
+        if(infoEl) infoEl.style.display = 'flex';
 
-        // Solo sobreescribir si el usuario no ha tocado el campo manualmente
-        if (!precioInput.dataset.editadoManual) {
+        if (precioInput && !precioInput.dataset.editadoManual) {
             precioInput.value = total.toFixed(2);
         }
     }
 
-    // =========================================
-    // FIX: Actualizar opciones del select con indicadores de ocupación
-    // =========================================
     function actualizarOpcionesHabitacion(fechaStr) {
         const select = document.getElementById('modalRecursoid');
+        if (!select) return;
         const valorActual = select.value;
 
         select.innerHTML = '';
@@ -2007,24 +1949,17 @@
             const opt = document.createElement('option');
             opt.value = r.recursoid;
 
-            // Verificar si tiene check-in EN esta fecha exacta
             const tieneCheckin = todasLasReservas.some(res =>
                 res.recursoid === r.recursoid &&
                 res.estadoid !== 3 &&
                 formatDate(new Date(res.fecha_inicio)) === fechaStr
             );
 
-            // Verificar disponibilidad general (bloqueado = día intermedio u otro check-in)
             const fecha = new Date(fechaStr + 'T00:00:00');
             const disp = calcularDisponibilidadCelda(r.recursoid, fecha);
             const esBloqueada = disp === 'bloqueado';
 
-            if (tieneCheckin) {
-                opt.textContent = `${r.nombre} — Ocupada`;
-                opt.style.color = '#999';
-                opt.disabled = true;
-                opt.className = 'opt-bloqueada';
-            } else if (esBloqueada) {
+            if (tieneCheckin || esBloqueada) {
                 opt.textContent = `${r.nombre} — Ocupada`;
                 opt.style.color = '#999';
                 opt.disabled = true;
@@ -2036,23 +1971,18 @@
             select.appendChild(opt);
         });
 
-        // Restaurar selección previa si aún existe como opción
         if (valorActual) {
             const existe = Array.from(select.options).some(o => o.value === valorActual);
             if (existe) select.value = valorActual;
         }
 
-        // Re-validar disponibilidad con la nueva selección
         validarDisponibilidadModal();
     }
 
-    // =========================================
-    // FIX: Validar disponibilidad antes de guardar
-    // =========================================
     function validarDisponibilidadModal() {
-        const recursoid = parseInt(document.getElementById('modalRecursoid').value);
-        const fechaIni = document.getElementById('modalFechaInicio').value;
-        const fechaFin = document.getElementById('modalFechaFin').value;
+        const recursoid = parseInt(document.getElementById('modalRecursoid')?.value);
+        const fechaIni = document.getElementById('modalFechaInicio')?.value;
+        const fechaFin = document.getElementById('modalFechaFin')?.value;
         const alerta = document.getElementById('alertaError');
         const btnGuardar = document.getElementById('btnGuardarReserva');
 
@@ -2061,180 +1991,190 @@
         const iniDate = new Date(fechaIni + 'T00:00:00');
         const finDate = new Date(fechaFin + 'T00:00:00');
 
-        // Buscar reservas que se traslapen para este recurso
         const reservasConflicto = todasLasReservas.filter(r => {
             if (r.recursoid !== recursoid) return false;
-            if (r.estadoid === 3) return false; // cancelada/disponible
+            if (r.estadoid === 3) return false;
             const rIni = new Date(r.fecha_inicio);
             const rFin = new Date(r.fecha_fin);
-            // Traslape real: iniDate < rFin && finDate > rIni
-            // checkout (finDate === rIni en fecha) está permitido
             const rIniStr = formatDate(rIni);
             const rFinStr = formatDate(rFin);
             const iniStr = formatDate(iniDate);
             const finStr = formatDate(finDate);
-            // No hay conflicto si: finStr <= rIniStr (entra cuando el otro ya salió)
-            //                  o   iniStr >= rFinStr (sale cuando el otro ya entró)
             return !(finStr <= rIniStr || iniStr >= rFinStr);
         });
 
         if (reservasConflicto.length > 0) {
             const res = reservasConflicto[0];
-            const nombre = res.cliente
-                ? `${res.cliente.nombre ?? ''} ${res.cliente.apellido ?? ''}`.trim()
-                : `Reserva #${res.reservaid}`;
+            const nombre = res.cliente ? `${res.cliente.nombre ?? ''} ${res.cliente.apellido ?? ''}`.trim() : `Reserva #${res.reservaid}`;
             const fi = new Date(res.fecha_inicio).toLocaleDateString('es-SV');
             const ff = new Date(res.fecha_fin).toLocaleDateString('es-SV');
-            mostrarAlerta(`Esta habitación ya tiene una reserva (${nombre}, ${fi} → ${ff}). Elige otras fechas u otra habitación.`);
-            btnGuardar.disabled = true;
+            if(alerta) alerta.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Esta habitación ya tiene una reserva (${nombre}, ${fi} → ${ff}). Elige otras fechas u otra habitación.`;
+            if(alerta) alerta.style.display = 'flex';
+            if(btnGuardar) btnGuardar.disabled = true;
         } else {
-            alerta.style.display = 'none';
-            btnGuardar.disabled = false;
+            if(alerta) alerta.style.display = 'none';
+            if(btnGuardar) btnGuardar.disabled = false;
         }
     }
 
     function abrirModalCrear(recursoid, fecha) {
-        document.getElementById('modalFechaInicio').value = fecha;
+        const fechaInicioInput = document.getElementById('modalFechaInicio');
+        if(fechaInicioInput) fechaInicioInput.value = fecha;
 
-        // Fecha salida = día siguiente, con min = día siguiente
         const siguiente = new Date(fecha + 'T00:00:00');
         siguiente.setDate(siguiente.getDate() + 1);
         const siguienteStr = formatDate(siguiente);
         const fechaFinInput = document.getElementById('modalFechaFin');
-        fechaFinInput.value = siguienteStr;
-        fechaFinInput.min = siguienteStr;
+        if(fechaFinInput) {
+            fechaFinInput.value = siguienteStr;
+            fechaFinInput.min = siguienteStr;
+        }
+        if(fechaInicioInput) fechaInicioInput.min = fecha;
 
-        // Establecer min de fecha inicio = hoy
-        document.getElementById('modalFechaInicio').min = fecha;
-
-        // Limpiar flag de edición manual y calcular precio inicial
         const precioInput = document.getElementById('modalPrecio');
-        delete precioInput.dataset.editadoManual;
+        if(precioInput) delete precioInput.dataset.editadoManual;
 
-        // FIX: Actualizar opciones del select con indicadores de ocupación
-        // y luego seleccionar el recurso correcto
         actualizarOpcionesHabitacion(fecha);
-        document.getElementById('modalRecursoid').value = recursoid;
+        const recursoSelect = document.getElementById('modalRecursoid');
+        if(recursoSelect) recursoSelect.value = recursoid;
 
         calcularPrecio();
         limpiarClienteSeleccionado();
-        document.getElementById('alertaError').style.display = 'none';
-        document.getElementById('btnGuardarReserva').disabled = false;
+        const alerta = document.getElementById('alertaError');
+        if(alerta) alerta.style.display = 'none';
+        const btnGuardar = document.getElementById('btnGuardarReserva');
+        if(btnGuardar) btnGuardar.disabled = false;
 
         const modal = new bootstrap.Modal(document.getElementById('modalCrearReserva'));
         modal.show();
     }
 
-    // Recalcular precio al cambiar fechas o habitación
     ['modalFechaInicio', 'modalFechaFin', 'modalRecursoid'].forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => {
-            // Al cambiar fecha inicio, actualizar min de fecha fin y opciones del select
-            if (id === 'modalFechaInicio') {
-                const fi = document.getElementById('modalFechaInicio').value;
-                if (fi) {
-                    const siguiente = new Date(fi + 'T00:00:00');
-                    siguiente.setDate(siguiente.getDate() + 1);
-                    const ffInput = document.getElementById('modalFechaFin');
-                    ffInput.min = formatDate(siguiente);
-                    // Si la fecha fin es menor o igual a inicio, corregir
-                    if (ffInput.value && ffInput.value <= fi) {
-                        ffInput.value = formatDate(siguiente);
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                if (id === 'modalFechaInicio') {
+                    const fi = document.getElementById('modalFechaInicio')?.value;
+                    if (fi) {
+                        const siguiente = new Date(fi + 'T00:00:00');
+                        siguiente.setDate(siguiente.getDate() + 1);
+                        const ffInput = document.getElementById('modalFechaFin');
+                        if(ffInput) ffInput.min = formatDate(siguiente);
+                        if (ffInput && ffInput.value && ffInput.value <= fi) {
+                            ffInput.value = formatDate(siguiente);
+                        }
+                        actualizarOpcionesHabitacion(fi);
                     }
-                    // FIX: Actualizar indicadores de ocupación en el select
-                    actualizarOpcionesHabitacion(fi);
                 }
-            }
-            delete document.getElementById('modalPrecio').dataset.editadoManual;
-            calcularPrecio();
-            // FIX: Re-validar disponibilidad al cambiar cualquier campo
-            validarDisponibilidadModal();
+                const precioInput = document.getElementById('modalPrecio');
+                if(precioInput) delete precioInput.dataset.editadoManual;
+                calcularPrecio();
+                validarDisponibilidadModal();
+            });
+        }
+    });
+
+    const precioInput = document.getElementById('modalPrecio');
+    if(precioInput) {
+        precioInput.addEventListener('input', () => {
+            precioInput.dataset.editadoManual = 'true';
         });
-    });
+    }
 
-    // Si el usuario edita el precio manualmente, no sobreescribir
-    document.getElementById('modalPrecio').addEventListener('input', () => {
-        document.getElementById('modalPrecio').dataset.editadoManual = 'true';
-    });
+    const btnAgregar = document.getElementById('btnAgregarReserva');
+    if(btnAgregar) {
+        btnAgregar.addEventListener('click', () => {
+            const hoy = formatDate(new Date());
+            abrirModalCrear(RECURSOS[0]?.recursoid ?? 0, hoy);
+        });
+    }
 
-    document.getElementById('btnAgregarReserva').addEventListener('click', () => {
-        const hoy = formatDate(new Date());
-        abrirModalCrear(RECURSOS[0]?.recursoid ?? 0, hoy);
-    });
+    const btnGuardarReserva = document.getElementById('btnGuardarReserva');
+    if(btnGuardarReserva) {
+        btnGuardarReserva.addEventListener('click', async () => {
+            const clienteid = document.getElementById('modalClienteId')?.value;
+            if (!clienteid) {
+                mostrarAlerta('Debes seleccionar un huésped.');
+                return;
+            }
 
-    // =========================================
-    // GUARDAR RESERVA
-    // =========================================
-    document.getElementById('btnGuardarReserva').addEventListener('click', async () => {
-        const clienteid = document.getElementById('modalClienteId').value;
-        if (!clienteid) {
-            mostrarAlerta('Debes seleccionar un huésped.');
-            return;
-        }
+            const fechaInicio = document.getElementById('modalFechaInicio')?.value;
+            const horaInicio = document.getElementById('modalHoraInicio')?.value;
+            const fechaFin = document.getElementById('modalFechaFin')?.value;
+            const horaSalida = document.getElementById('modalHoraSalida')?.value;
 
-        const fechaInicio = document.getElementById('modalFechaInicio').value;
-        const horaInicio = document.getElementById('modalHoraInicio').value;
-        const fechaFin = document.getElementById('modalFechaFin').value;
-        const horaSalida = document.getElementById('modalHoraSalida').value;
+            if (!fechaInicio || !fechaFin) {
+                mostrarAlerta('Las fechas son requeridas.');
+                return;
+            }
 
-        if (!fechaInicio || !fechaFin) {
-            mostrarAlerta('Las fechas son requeridas.');
-            return;
-        }
-
-        const dto = {
-            clienteid: parseInt(clienteid),
-            recursoid: parseInt(document.getElementById('modalRecursoid').value),
-            estadoid: parseInt(document.getElementById('modalEstadoid').value),
+            const dto = {
+                clienteid: parseInt(clienteid),
+                recursoid: parseInt(document.getElementById('modalRecursoid')?.value),
+                estadoid: parseInt(document.getElementById('modalEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin:    `${fechaFin}T${horaSalida}:00`,
-            preciofinal: parseFloat(document.getElementById('modalPrecio').value) || null
-        };
+                preciofinal: parseFloat(document.getElementById('modalPrecio')?.value) || null
+            };
 
-        const btn = document.getElementById('btnGuardarReserva');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
-
-        try {
-            const resp = await fetch('/Admin/CrearReservaCalendario', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dto)
-            });
-
-            if (resp.ok) {
-                bootstrap.Modal.getInstance(document.getElementById('modalCrearReserva')).hide();
-                await cargarReservas();
-            } else {
-                const err = await resp.json();
-                mostrarAlerta(err.error ?? 'Error al guardar la reserva.');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar reserva';
+            const btn = document.getElementById('btnGuardarReserva');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
             }
-        } catch (e) {
-            mostrarAlerta('Error de conexión. Intenta de nuevo.');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar reserva';
-        }
-    });
+
+            try {
+                const resp = await fetch('/Admin/CrearReservaCalendario', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dto)
+                });
+
+                if (resp.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalCrearReserva')).hide();
+                    await cargarReservas();
+                } else {
+                    const err = await resp.json();
+                    mostrarAlerta(err.error ?? 'Error al guardar la reserva.');
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar reserva';
+                    }
+                }
+            } catch (e) {
+                mostrarAlerta('Error de conexión. Intenta de nuevo.');
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar reserva';
+                }
+            }
+        });
+    }
 
     function mostrarAlerta(msg) {
         const al = document.getElementById('alertaError');
-        al.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
-        al.style.display = 'flex';
+        if(al) {
+            al.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+            al.style.display = 'flex';
+        }
     }
 
     // =========================================
     // BUSCADOR DE CLIENTES
     // =========================================
-    document.getElementById('inputBuscarCliente').addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        const q = e.target.value.trim();
-        if (q.length < 2) {
-            document.getElementById('clienteDropdown').style.display = 'none';
-            return;
-        }
-        searchTimeout = setTimeout(() => buscarClientes(q), 280);
-    });
+    const inputBuscar = document.getElementById('inputBuscarCliente');
+    if(inputBuscar) {
+        inputBuscar.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const q = e.target.value.trim();
+            if (q.length < 2) {
+                const dd = document.getElementById('clienteDropdown');
+                if(dd) dd.style.display = 'none';
+                return;
+            }
+            searchTimeout = setTimeout(() => buscarClientes(q), 280);
+        });
+    }
 
     async function buscarClientes(q) {
         const resp = await fetch(`/Admin/BuscarClientes?q=${encodeURIComponent(q)}`);
@@ -2244,28 +2184,29 @@
 
     function renderDropdown(clientes, q) {
         const dd = document.getElementById('clienteDropdown');
+        if(!dd) return;
         dd.innerHTML = '';
 
         clientes.forEach(c => {
             const item = document.createElement('div');
             item.className = 'cliente-option';
-            item.innerHTML = `
-                <div class="opt-nombre">${c.nombre ?? ''} ${c.apellido ?? ''}</div>
-                <div class="opt-meta">${[c.correo, c.telefono].filter(Boolean).join(' · ')}</div>
-            `;
+            item.innerHTML = `<div class="opt-nombre">${c.nombre ?? ''} ${c.apellido ?? ''}</div>
+                              <div class="opt-meta">${[c.correo, c.telefono].filter(Boolean).join(' · ')}</div>`;
             item.addEventListener('click', () => seleccionarCliente(c));
             dd.appendChild(item);
         });
 
-        // Opción de crear
         const crearBtn = document.createElement('div');
         crearBtn.className = 'cliente-option-crear';
         crearBtn.innerHTML = `<i class="bi bi-person-plus-fill"></i> Crear "${q}" como nuevo cliente`;
         crearBtn.addEventListener('click', () => {
-            document.getElementById('nuevoNombre').value = q.split(' ')[0] ?? q;
-            document.getElementById('nuevoApellido').value = q.split(' ').slice(1).join(' ');
-            dd.style.display = 'none';
-            document.getElementById('seccionCrearCliente').style.display = 'block';
+            const nombreInput = document.getElementById('nuevoNombre');
+            const apellidoInput = document.getElementById('nuevoApellido');
+            if(nombreInput) nombreInput.value = q.split(' ')[0] ?? q;
+            if(apellidoInput) apellidoInput.value = q.split(' ').slice(1).join(' ');
+            if(dd) dd.style.display = 'none';
+            const seccion = document.getElementById('seccionCrearCliente');
+            if(seccion) seccion.style.display = 'block';
         });
         dd.appendChild(crearBtn);
 
@@ -2274,35 +2215,52 @@
 
     function seleccionarCliente(c) {
         clienteSeleccionado = c;
-        document.getElementById('modalClienteId').value = c.personaid;
-        document.getElementById('clienteSelectedNombre').textContent =
-            `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
-        document.getElementById('clienteSelected').style.display = 'flex';
-        document.getElementById('inputBuscarCliente').style.display = 'none';
-        document.getElementById('clienteDropdown').style.display = 'none';
-        document.getElementById('seccionCrearCliente').style.display = 'none';
+        const clienteIdInput = document.getElementById('modalClienteId');
+        if(clienteIdInput) clienteIdInput.value = c.personaid;
+        const selectedDiv = document.getElementById('clienteSelected');
+        const selectedSpan = document.getElementById('clienteSelectedNombre');
+        if(selectedSpan) selectedSpan.textContent = `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
+        if(selectedDiv) selectedDiv.style.display = 'flex';
+        const inputBuscar = document.getElementById('inputBuscarCliente');
+        if(inputBuscar) inputBuscar.style.display = 'none';
+        const dropdown = document.getElementById('clienteDropdown');
+        if(dropdown) dropdown.style.display = 'none';
+        const seccionCrear = document.getElementById('seccionCrearCliente');
+        if(seccionCrear) seccionCrear.style.display = 'none';
     }
 
     function limpiarClienteSeleccionado() {
         clienteSeleccionado = null;
-        document.getElementById('modalClienteId').value = '';
-        document.getElementById('clienteSelected').style.display = 'none';
-        document.getElementById('inputBuscarCliente').style.display = 'block';
-        document.getElementById('inputBuscarCliente').value = '';
-        document.getElementById('clienteDropdown').style.display = 'none';
-        document.getElementById('seccionCrearCliente').style.display = 'none';
+        const clienteIdInput = document.getElementById('modalClienteId');
+        if(clienteIdInput) clienteIdInput.value = '';
+        const selectedDiv = document.getElementById('clienteSelected');
+        if(selectedDiv) selectedDiv.style.display = 'none';
+        const inputBuscar = document.getElementById('inputBuscarCliente');
+        if(inputBuscar) {
+            inputBuscar.style.display = 'block';
+            inputBuscar.value = '';
+        }
+        const dropdown = document.getElementById('clienteDropdown');
+        if(dropdown) dropdown.style.display = 'none';
+        const seccionCrear = document.getElementById('seccionCrearCliente');
+        if(seccionCrear) seccionCrear.style.display = 'none';
     }
 
-    document.getElementById('btnClearCliente').addEventListener('click', limpiarClienteSeleccionado);
+    const clearBtn = document.getElementById('btnClearCliente');
+    if(clearBtn) clearBtn.addEventListener('click', limpiarClienteSeleccionado);
 
-    document.getElementById('btnCerrarCrearCliente').addEventListener('click', () => {
-        document.getElementById('seccionCrearCliente').style.display = 'none';
-    });
+    const cerrarCrearBtn = document.getElementById('btnCerrarCrearCliente');
+    if(cerrarCrearBtn) {
+        cerrarCrearBtn.addEventListener('click', () => {
+            const seccion = document.getElementById('seccionCrearCliente');
+            if(seccion) seccion.style.display = 'none';
+        });
+    }
 
     // =========================================
-    // GUARDAR NUEVO CLIENTE
+    // GUARDAR NUEVO CLIENTE (con validación mejorada)
     // =========================================
-        const digitosRequeridosCliente = {
+    const digitosRequeridosCliente = {
         '+1':10,'+52':10,
         '+501':7,'+502':8,'+503':8,'+504':8,'+505':8,'+506':8,'+507':8,
         '+53':8,'+509':8,'+1809':10,'+1876':10,'+1787':10,
@@ -2310,319 +2268,367 @@
         '+591':8,'+593':9,'+595':9,'+598':8,'+592':7,'+597':7
     };
 
-        // Actualizar mensaje de ayuda al cambiar código de país
-    document.getElementById('nuevoCodigoPais').addEventListener('change', function () {
-        const help  = document.getElementById('nuevoTelefonoHelp');
-        const digitos = digitosRequeridosCliente[this.value];
-        document.getElementById('nuevoNumeroTelefono').value = '';
-        if (digitos) {
-            help.textContent = `Requiere exactamente ${digitos} dígitos`;
-            help.style.color = 'var(--cb-primary)';
-        } else {
-            help.textContent = 'Selecciona un código de país';
-            help.style.color = 'var(--cb-text-muted)';
+    const codigoPaisSelect = document.getElementById('nuevoCodigoPais');
+    if(codigoPaisSelect) {
+        codigoPaisSelect.addEventListener('change', function () {
+            const help = document.getElementById('nuevoTelefonoHelp');
+            const digitos = digitosRequeridosCliente[this.value];
+            const numeroInput = document.getElementById('nuevoNumeroTelefono');
+            if(numeroInput) numeroInput.value = '';
+            if (help) {
+                if (digitos) {
+                    help.textContent = `Requiere exactamente ${digitos} dígitos`;
+                    help.style.color = 'var(--cb-primary)';
+                } else {
+                    help.textContent = 'Selecciona un código de país';
+                    help.style.color = 'var(--cb-text-muted)';
+                }
+            }
+            limpiarErrorCampo('errTelefono');
+        });
+    }
+
+    const numeroTelefonoInput = document.getElementById('nuevoNumeroTelefono');
+    if(numeroTelefonoInput) {
+        numeroTelefonoInput.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '');
+            limpiarErrorCampo('errTelefono');
+        });
+    }
+
+    function mostrarErrorCampo(idError, mensaje) {
+        const el = document.getElementById(idError);
+        if(el) {
+            el.textContent = mensaje;
+            el.style.display = 'block';
         }
-        limpiarErrorCampo('errTelefono');
-    });
-
-        // Solo permitir dígitos en el campo número
-    document.getElementById('nuevoNumeroTelefono').addEventListener('input', function () {
-        this.value = this.value.replace(/\D/g, '');
-        limpiarErrorCampo('errTelefono');
-    });
-
-        function mostrarErrorCampo(idError, mensaje) {
-        const el = document.getElementById(idError);
-        el.textContent = mensaje;
-        el.style.display = 'block';
     }
-        function limpiarErrorCampo(idError) {
+    function limpiarErrorCampo(idError) {
         const el = document.getElementById(idError);
-        el.textContent = '';
-        el.style.display = 'none';
+        if(el) {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
     }
-        function limpiarTodosLosErrores() {
+    function limpiarTodosLosErrores() {
         ['errNombre','errApellido','errCorreo','errTelefono'].forEach(limpiarErrorCampo);
     }
 
-        // Limpiar errores al escribir
-    document.getElementById('nuevoNombre').addEventListener('input',         () => limpiarErrorCampo('errNombre'));
-    document.getElementById('nuevoApellido').addEventListener('input',       () => limpiarErrorCampo('errApellido'));
-    document.getElementById('nuevoCorreo').addEventListener('input',         () => limpiarErrorCampo('errCorreo'));
-    document.getElementById('nuevoNumeroTelefono').addEventListener('input', () => limpiarErrorCampo('errTelefono'));
+    const nuevoNombreInput = document.getElementById('nuevoNombre');
+    if(nuevoNombreInput) nuevoNombreInput.addEventListener('input', () => limpiarErrorCampo('errNombre'));
+    const nuevoApellidoInput = document.getElementById('nuevoApellido');
+    if(nuevoApellidoInput) nuevoApellidoInput.addEventListener('input', () => limpiarErrorCampo('errApellido'));
+    const nuevoCorreoInput = document.getElementById('nuevoCorreo');
+    if(nuevoCorreoInput) nuevoCorreoInput.addEventListener('input', () => limpiarErrorCampo('errCorreo'));
+    if(numeroTelefonoInput) numeroTelefonoInput.addEventListener('input', () => limpiarErrorCampo('errTelefono'));
 
     function validarNuevoCliente() {
-    let valido = true;
-    limpiarTodosLosErrores();
+        let valido = true;
+        limpiarTodosLosErrores();
 
-    const nombre   = document.getElementById('nuevoNombre').value.trim();
-    const apellido = document.getElementById('nuevoApellido').value.trim();
-    const correo   = document.getElementById('nuevoCorreo').value.trim();
-    const codigo   = document.getElementById('nuevoCodigoPais').value;
-    const numero   = document.getElementById('nuevoNumeroTelefono').value.trim();
+        const nombre = document.getElementById('nuevoNombre')?.value.trim() || '';
+        const apellido = document.getElementById('nuevoApellido')?.value.trim() || '';
+        const correo = document.getElementById('nuevoCorreo')?.value.trim() || '';
+        const codigo = document.getElementById('nuevoCodigoPais')?.value || '';
+        const numero = document.getElementById('nuevoNumeroTelefono')?.value.trim() || '';
 
-    // Nombre: obligatorio, solo letras, mínimo 2 chars
-    if (!nombre) {
-        mostrarErrorCampo('errNombre', 'El nombre es requerido.');
-        valido = false;
-    } else if (nombre.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombre)) {
-        mostrarErrorCampo('errNombre', 'Solo letras, mínimo 2 caracteres.');
-        valido = false;
-    }
-
-    // Apellido: obligatorio, solo letras, mínimo 2 chars
-    if (!apellido) {
-        mostrarErrorCampo('errApellido', 'El apellido es requerido.');
-        valido = false;
-    } else if (apellido.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(apellido)) {
-        mostrarErrorCampo('errApellido', 'Solo letras, mínimo 2 caracteres.');
-        valido = false;
-    }
-
-    // Correo: obligatorio y con formato válido
-    if (!correo) {
-        mostrarErrorCampo('errCorreo', 'El correo es requerido.');
-        valido = false;
-    } else if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]{2,}$/.test(correo)) {
-        mostrarErrorCampo('errCorreo', 'Ingresa un correo válido (ej: nombre@@dominio.com).');
-        valido = false;
-    }
-
-    // Teléfono: código obligatorio
-    if (!codigo) {
-        mostrarErrorCampo('errTelefono', 'Selecciona un código de país.');
-        valido = false;
-    } else if (!numero) {
-        mostrarErrorCampo('errTelefono', 'El número de teléfono es requerido.');
-        valido = false;
-    } else {
-        const digitosNecesarios = digitosRequeridosCliente[codigo];
-        if (!digitosNecesarios) {
-            mostrarErrorCampo('errTelefono', 'Código de país no reconocido.');
+        if (!nombre) {
+            mostrarErrorCampo('errNombre', 'El nombre es requerido.');
             valido = false;
-        } else if (numero.length !== digitosNecesarios) {
-            mostrarErrorCampo('errTelefono', `El número debe tener exactamente ${digitosNecesarios} dígitos para ${codigo}. Tienes ${numero.length}.`);
+        } else if (nombre.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombre)) {
+            mostrarErrorCampo('errNombre', 'Solo letras, mínimo 2 caracteres.');
             valido = false;
         }
-    }
 
-    return valido;
-}
+        if (!apellido) {
+            mostrarErrorCampo('errApellido', 'El apellido es requerido.');
+            valido = false;
+        } else if (apellido.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(apellido)) {
+            mostrarErrorCampo('errApellido', 'Solo letras, mínimo 2 caracteres.');
+            valido = false;
+        }
 
-        document.getElementById('btnGuardarNuevoCliente').addEventListener('click', async () => {
-        if (!validarNuevoCliente()) return;
+        if (!correo) {
+            mostrarErrorCampo('errCorreo', 'El correo es requerido.');
+            valido = false;
+        } else if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]{2,}$/.test(correo)) {
+            mostrarErrorCampo('errCorreo', 'Ingresa un correo válido (ej: nombre@@dominio.com).');
+            valido = false;
+        }
 
-        const codigo = document.getElementById('nuevoCodigoPais').value;
-        const numero = document.getElementById('nuevoNumeroTelefono').value.trim();
-
-        const dto = {
-            nombre:   document.getElementById('nuevoNombre').value.trim(),
-            apellido: document.getElementById('nuevoApellido').value.trim(),
-            correo:   document.getElementById('nuevoCorreo').value.trim(),
-            telefono: `${codigo}|${numero}`
-        };
-
-        const btn = document.getElementById('btnGuardarNuevoCliente');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
-
-        try {
-            const resp = await fetch('/Admin/CrearClienteRapido', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dto)
-            });
-
-            if (resp.ok) {
-                const nuevo = await resp.json();
-                seleccionarCliente(nuevo);
-                limpiarTodosLosErrores();
-                ['nuevoNombre','nuevoApellido','nuevoCorreo','nuevoNumeroTelefono']
-                    .forEach(id => document.getElementById(id).value = '');
-                document.getElementById('nuevoCodigoPais').value = '';
-                document.getElementById('nuevoTelefonoHelp').textContent = 'Selecciona un código de país';
-            } else {
-                const err = await resp.json();
-                mostrarAlerta(err.error ?? 'Error al crear el cliente.');
+        if (!codigo) {
+            mostrarErrorCampo('errTelefono', 'Selecciona un código de país.');
+            valido = false;
+        } else if (!numero) {
+            mostrarErrorCampo('errTelefono', 'El número de teléfono es requerido.');
+            valido = false;
+        } else {
+            const digitosNecesarios = digitosRequeridosCliente[codigo];
+            if (!digitosNecesarios) {
+                mostrarErrorCampo('errTelefono', 'Código de país no reconocido.');
+                valido = false;
+            } else if (numero.length !== digitosNecesarios) {
+                mostrarErrorCampo('errTelefono', `El número debe tener exactamente ${digitosNecesarios} dígitos para ${codigo}. Tienes ${numero.length}.`);
+                valido = false;
             }
-        } catch (e) {
-            mostrarAlerta('Error de conexión.');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
         }
-    });
+
+        return valido;
+    }
+
+    const guardarClienteBtn = document.getElementById('btnGuardarNuevoCliente');
+    if(guardarClienteBtn) {
+        guardarClienteBtn.addEventListener('click', async () => {
+            if (!validarNuevoCliente()) return;
+
+            const codigo = document.getElementById('nuevoCodigoPais')?.value || '';
+            const numero = document.getElementById('nuevoNumeroTelefono')?.value.trim() || '';
+            const dto = {
+                nombre: document.getElementById('nuevoNombre')?.value.trim() || '',
+                apellido: document.getElementById('nuevoApellido')?.value.trim() || '',
+                correo: document.getElementById('nuevoCorreo')?.value.trim() || '',
+                telefono: `${codigo}|${numero}`
+            };
+
+            const btn = document.getElementById('btnGuardarNuevoCliente');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+            }
+
+            try {
+                const resp = await fetch('/Admin/CrearClienteRapido', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dto)
+                });
+
+                if (resp.ok) {
+                    const nuevo = await resp.json();
+                    seleccionarCliente(nuevo);
+                    limpiarTodosLosErrores();
+                    ['nuevoNombre','nuevoApellido','nuevoCorreo','nuevoNumeroTelefono'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.value = '';
+                    });
+                    const codigoSelect = document.getElementById('nuevoCodigoPais');
+                    if(codigoSelect) codigoSelect.value = '';
+                    const help = document.getElementById('nuevoTelefonoHelp');
+                    if(help) help.textContent = 'Selecciona un código de país';
+                } else {
+                    const err = await resp.json();
+                    mostrarAlerta(err.error ?? 'Error al crear el cliente.');
+                }
+            } catch (e) {
+                mostrarAlerta('Error de conexión.');
+            } finally {
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
+                }
+            }
+        });
+    }
 
     // =========================================
-    // MODAL EDITAR RESERVA
+    // MODAL EDITAR RESERVA (similar al crear, con seguridad)
     // =========================================
     let reservaidEditando = null;
     let editClienteSeleccionado = null;
     let editSearchTimeout = null;
 
-    document.getElementById('btnEditarReservaPopover').addEventListener('click', () => {
-        if (!reservaActualEnPopover) return;
-        document.getElementById('calPopover').style.display = 'none';
-        abrirModalEditar(reservaActualEnPopover);
-    });
+    const btnEditarPopover = document.getElementById('btnEditarReservaPopover');
+    if(btnEditarPopover) {
+        btnEditarPopover.addEventListener('click', () => {
+            if (!reservaActualEnPopover) return;
+            const popover = document.getElementById('calPopover');
+            if(popover) popover.style.display = 'none';
+            abrirModalEditar(reservaActualEnPopover);
+        });
+    }
 
     function abrirModalEditar(r) {
         reservaidEditando = r.reservaid;
 
-        // Habitación
-        document.getElementById('editRecursoid').value = r.recursoid;
+        const editRecurso = document.getElementById('editRecursoid');
+        if(editRecurso) editRecurso.value = r.recursoid;
+        const editEstado = document.getElementById('editEstadoid');
+        if(editEstado) editEstado.value = r.estadoid;
 
-        // Estado
-        document.getElementById('editEstadoid').value = r.estadoid;
-
-        // Fechas y horas — leer directamente del string ISO para evitar conversiones de zona horaria
         const fiStr = r.fecha_inicio;
         const ffStr = r.fecha_fin;
-        document.getElementById('editFechaInicio').value = fiStr.substring(0, 10);
-        document.getElementById('editFechaFin').value   = ffStr.substring(0, 10);
-        document.getElementById('editHoraInicio').value = fiStr.substring(11, 16);
-        document.getElementById('editHoraSalida').value = ffStr.substring(11, 16);
+        const editFechaInicio = document.getElementById('editFechaInicio');
+        const editFechaFin = document.getElementById('editFechaFin');
+        const editHoraInicio = document.getElementById('editHoraInicio');
+        const editHoraSalida = document.getElementById('editHoraSalida');
+        if(editFechaInicio) editFechaInicio.value = fiStr.substring(0, 10);
+        if(editFechaFin) editFechaFin.value = ffStr.substring(0, 10);
+        if(editHoraInicio) editHoraInicio.value = fiStr.substring(11, 16);
+        if(editHoraSalida) editHoraSalida.value = ffStr.substring(11, 16);
 
-        // Precio
         const precioInput = document.getElementById('editPrecio');
-        precioInput.value = r.preciofinal != null ? Number(r.preciofinal).toFixed(2) : '';
-        delete precioInput.dataset.editadoManual;
+        if(precioInput) {
+            precioInput.value = r.preciofinal != null ? Number(r.preciofinal).toFixed(2) : '';
+            delete precioInput.dataset.editadoManual;
+        }
         calcularPrecioEditar();
 
-        // Cliente
         if (r.cliente) {
             editSeleccionarCliente(r.cliente);
         } else {
             editLimpiarClienteSeleccionado();
         }
 
-        document.getElementById('editAlertaError').style.display = 'none';
-        const btnGuardar = document.getElementById('btnGuardarEdicion');
-        btnGuardar.disabled = false;
-        btnGuardar.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+        const alertaEdit = document.getElementById('editAlertaError');
+        if(alertaEdit) alertaEdit.style.display = 'none';
+        const btnGuardarEdit = document.getElementById('btnGuardarEdicion');
+        if(btnGuardarEdit) {
+            btnGuardarEdit.disabled = false;
+            btnGuardarEdit.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+        }
 
         const modal = new bootstrap.Modal(document.getElementById('modalEditarReserva'));
         modal.show();
     }
 
     function calcularPrecioEditar() {
-        const fi = document.getElementById('editFechaInicio').value;
-        const ff = document.getElementById('editFechaFin').value;
-        const recursoid = document.getElementById('editRecursoid').value;
+        const fi = document.getElementById('editFechaInicio')?.value;
+        const ff = document.getElementById('editFechaFin')?.value;
+        const recursoid = document.getElementById('editRecursoid')?.value;
         const infoEl = document.getElementById('editPrecioInfo');
         const infoTexto = document.getElementById('editPrecioInfoTexto');
         const precioInput = document.getElementById('editPrecio');
 
-        if (!fi || !ff) { infoEl.style.display = 'none'; return; }
+        if (!fi || !ff || !recursoid) { if(infoEl) infoEl.style.display = 'none'; return; }
         const inicio = new Date(fi);
         const fin = new Date(ff);
         const dias = Math.round((fin - inicio) / (1000 * 60 * 60 * 24));
-        if (dias <= 0) { infoEl.style.display = 'none'; return; }
+        if (dias <= 0) { if(infoEl) infoEl.style.display = 'none'; return; }
 
         const precioPorNoche = getPrecioRecurso(recursoid);
         const total = dias * precioPorNoche;
-        infoTexto.textContent = `${dias} ${dias === 1 ? 'día' : 'días'} × $${precioPorNoche.toFixed(2)}/noche = $${total.toFixed(2)}`;
-        infoEl.style.display = 'flex';
+        if(infoTexto) infoTexto.textContent = `${dias} ${dias === 1 ? 'día' : 'días'} × $${precioPorNoche.toFixed(2)}/noche = $${total.toFixed(2)}`;
+        if(infoEl) infoEl.style.display = 'flex';
 
-        if (!precioInput.dataset.editadoManual) {
+        if (precioInput && !precioInput.dataset.editadoManual) {
             precioInput.value = total.toFixed(2);
         }
     }
 
-    // Recalcular precio al cambiar fechas o habitación en modal editar
     ['editFechaInicio', 'editFechaFin', 'editRecursoid'].forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => {
-            if (id === 'editFechaInicio') {
-                const fi = document.getElementById('editFechaInicio').value;
-                if (fi) {
-                    const siguiente = new Date(fi + 'T00:00:00');
-                    siguiente.setDate(siguiente.getDate() + 1);
-                    const ffInput = document.getElementById('editFechaFin');
-                    ffInput.min = formatDate(siguiente);
-                    if (ffInput.value && ffInput.value <= fi) {
-                        ffInput.value = formatDate(siguiente);
+        const el = document.getElementById(id);
+        if(el) {
+            el.addEventListener('change', () => {
+                if (id === 'editFechaInicio') {
+                    const fi = document.getElementById('editFechaInicio')?.value;
+                    if (fi) {
+                        const siguiente = new Date(fi + 'T00:00:00');
+                        siguiente.setDate(siguiente.getDate() + 1);
+                        const ffInput = document.getElementById('editFechaFin');
+                        if(ffInput) ffInput.min = formatDate(siguiente);
+                        if (ffInput && ffInput.value && ffInput.value <= fi) {
+                            ffInput.value = formatDate(siguiente);
+                        }
                     }
                 }
-            }
-            delete document.getElementById('editPrecio').dataset.editadoManual;
-            calcularPrecioEditar();
-        });
-    });
-
-    document.getElementById('editPrecio').addEventListener('input', () => {
-        document.getElementById('editPrecio').dataset.editadoManual = 'true';
-    });
-
-    // Guardar edición
-    document.getElementById('btnGuardarEdicion').addEventListener('click', async () => {
-        const clienteid = document.getElementById('editClienteId').value;
-        if (!clienteid) {
-            mostrarAlertaEditar('Debes seleccionar un huésped.');
-            return;
-        }
-        const fechaInicio = document.getElementById('editFechaInicio').value;
-        const horaInicio  = document.getElementById('editHoraInicio').value;
-        const fechaFin    = document.getElementById('editFechaFin').value;
-        const horaSalida  = document.getElementById('editHoraSalida').value;
-
-        if (!fechaInicio || !fechaFin) {
-            mostrarAlertaEditar('Las fechas son requeridas.');
-            return;
-        }
-
-        const dto = {
-            reservaid:    reservaidEditando,
-            clienteid:    parseInt(clienteid),
-            recursoid:    parseInt(document.getElementById('editRecursoid').value),
-            estadoid:     parseInt(document.getElementById('editEstadoid').value),
-            fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
-            fecha_fin:    `${fechaFin}T${horaSalida}:00`,
-            preciofinal:  parseFloat(document.getElementById('editPrecio').value) || null
-        };
-
-        const btn = document.getElementById('btnGuardarEdicion');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
-
-        try {
-            const resp = await fetch('/Admin/EditarReservaCalendario', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dto)
+                const precioEdit = document.getElementById('editPrecio');
+                if(precioEdit) delete precioEdit.dataset.editadoManual;
+                calcularPrecioEditar();
             });
-
-            if (resp.ok) {
-                bootstrap.Modal.getInstance(document.getElementById('modalEditarReserva')).hide();
-                await cargarReservas();
-            } else {
-                const err = await resp.json();
-                mostrarAlertaEditar(err.error ?? 'Error al guardar los cambios.');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
-            }
-        } catch (e) {
-            mostrarAlertaEditar('Error de conexión. Intenta de nuevo.');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
         }
     });
+
+    const editPrecioInput = document.getElementById('editPrecio');
+    if(editPrecioInput) {
+        editPrecioInput.addEventListener('input', () => {
+            editPrecioInput.dataset.editadoManual = 'true';
+        });
+    }
+
+    const guardarEdicionBtn = document.getElementById('btnGuardarEdicion');
+    if(guardarEdicionBtn) {
+        guardarEdicionBtn.addEventListener('click', async () => {
+            const clienteid = document.getElementById('editClienteId')?.value;
+            if (!clienteid) {
+                mostrarAlertaEditar('Debes seleccionar un huésped.');
+                return;
+            }
+            const fechaInicio = document.getElementById('editFechaInicio')?.value;
+            const horaInicio = document.getElementById('editHoraInicio')?.value;
+            const fechaFin = document.getElementById('editFechaFin')?.value;
+            const horaSalida = document.getElementById('editHoraSalida')?.value;
+
+            if (!fechaInicio || !fechaFin) {
+                mostrarAlertaEditar('Las fechas son requeridas.');
+                return;
+            }
+
+            const dto = {
+                reservaid: reservaidEditando,
+                clienteid: parseInt(clienteid),
+                recursoid: parseInt(document.getElementById('editRecursoid')?.value),
+                estadoid: parseInt(document.getElementById('editEstadoid')?.value),
+                fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
+                fecha_fin: `${fechaFin}T${horaSalida}:00`,
+                preciofinal: parseFloat(document.getElementById('editPrecio')?.value) || null
+            };
+
+            const btn = document.getElementById('btnGuardarEdicion');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+            }
+
+            try {
+                const resp = await fetch('/Admin/EditarReservaCalendario', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dto)
+                });
+
+                if (resp.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarReserva')).hide();
+                    await cargarReservas();
+                } else {
+                    const err = await resp.json();
+                    mostrarAlertaEditar(err.error ?? 'Error al guardar los cambios.');
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+                    }
+                }
+            } catch (e) {
+                mostrarAlertaEditar('Error de conexión. Intenta de nuevo.');
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cambios';
+                }
+            }
+        });
+    }
 
     function mostrarAlertaEditar(msg) {
         const al = document.getElementById('editAlertaError');
-        al.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
-        al.style.display = 'flex';
+        if(al) {
+            al.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+            al.style.display = 'flex';
+        }
     }
 
     // Buscador de clientes en modal editar
-    document.getElementById('editInputBuscarCliente').addEventListener('input', (e) => {
-        clearTimeout(editSearchTimeout);
-        const q = e.target.value.trim();
-        if (q.length < 2) {
-            document.getElementById('editClienteDropdown').style.display = 'none';
-            return;
-        }
-        editSearchTimeout = setTimeout(() => editBuscarClientes(q), 280);
-    });
+    const editInputBuscar = document.getElementById('editInputBuscarCliente');
+    if(editInputBuscar) {
+        editInputBuscar.addEventListener('input', (e) => {
+            clearTimeout(editSearchTimeout);
+            const q = e.target.value.trim();
+            if (q.length < 2) {
+                const dd = document.getElementById('editClienteDropdown');
+                if(dd) dd.style.display = 'none';
+                return;
+            }
+            editSearchTimeout = setTimeout(() => editBuscarClientes(q), 280);
+        });
+    }
 
     async function editBuscarClientes(q) {
         const resp = await fetch(`/Admin/BuscarClientes?q=${encodeURIComponent(q)}`);
@@ -2632,14 +2638,13 @@
 
     function editRenderDropdown(clientes, q) {
         const dd = document.getElementById('editClienteDropdown');
+        if(!dd) return;
         dd.innerHTML = '';
         clientes.forEach(c => {
             const item = document.createElement('div');
             item.className = 'cliente-option';
-            item.innerHTML = `
-                <div class="opt-nombre">${c.nombre ?? ''} ${c.apellido ?? ''}</div>
-                <div class="opt-meta">${[c.correo, c.telefono].filter(Boolean).join(' · ')}</div>
-            `;
+            item.innerHTML = `<div class="opt-nombre">${c.nombre ?? ''} ${c.apellido ?? ''}</div>
+                              <div class="opt-meta">${[c.correo, c.telefono].filter(Boolean).join(' · ')}</div>`;
             item.addEventListener('click', () => editSeleccionarCliente(c));
             dd.appendChild(item);
         });
@@ -2647,10 +2652,13 @@
         crearBtn.className = 'cliente-option-crear';
         crearBtn.innerHTML = `<i class="bi bi-person-plus-fill"></i> Crear "${q}" como nuevo cliente`;
         crearBtn.addEventListener('click', () => {
-            document.getElementById('editNuevoNombre').value   = q.split(' ')[0] ?? q;
-            document.getElementById('editNuevoApellido').value = q.split(' ').slice(1).join(' ');
-            dd.style.display = 'none';
-            document.getElementById('editSeccionCrearCliente').style.display = 'block';
+            const nombreInput = document.getElementById('editNuevoNombre');
+            const apellidoInput = document.getElementById('editNuevoApellido');
+            if(nombreInput) nombreInput.value = q.split(' ')[0] ?? q;
+            if(apellidoInput) apellidoInput.value = q.split(' ').slice(1).join(' ');
+            if(dd) dd.style.display = 'none';
+            const seccion = document.getElementById('editSeccionCrearCliente');
+            if(seccion) seccion.style.display = 'block';
         });
         dd.appendChild(crearBtn);
         dd.style.display = 'block';
@@ -2658,186 +2666,275 @@
 
     function editSeleccionarCliente(c) {
         editClienteSeleccionado = c;
-        document.getElementById('editClienteId').value = c.personaid;
-        document.getElementById('editClienteSelectedNombre').textContent =
-            `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
-        document.getElementById('editClienteSelected').style.display = 'flex';
-        document.getElementById('editInputBuscarCliente').style.display = 'none';
-        document.getElementById('editClienteDropdown').style.display = 'none';
-        document.getElementById('editSeccionCrearCliente').style.display = 'none';
+        const clienteIdInput = document.getElementById('editClienteId');
+        if(clienteIdInput) clienteIdInput.value = c.personaid;
+        const selectedDiv = document.getElementById('editClienteSelected');
+        const selectedSpan = document.getElementById('editClienteSelectedNombre');
+        if(selectedSpan) selectedSpan.textContent = `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
+        if(selectedDiv) selectedDiv.style.display = 'flex';
+        const inputBuscar = document.getElementById('editInputBuscarCliente');
+        if(inputBuscar) inputBuscar.style.display = 'none';
+        const dropdown = document.getElementById('editClienteDropdown');
+        if(dropdown) dropdown.style.display = 'none';
+        const seccionCrear = document.getElementById('editSeccionCrearCliente');
+        if(seccionCrear) seccionCrear.style.display = 'none';
     }
 
     function editLimpiarClienteSeleccionado() {
         editClienteSeleccionado = null;
-        document.getElementById('editClienteId').value = '';
-        document.getElementById('editClienteSelected').style.display = 'none';
-        document.getElementById('editInputBuscarCliente').style.display = 'block';
-        document.getElementById('editInputBuscarCliente').value = '';
-        document.getElementById('editClienteDropdown').style.display = 'none';
-        document.getElementById('editSeccionCrearCliente').style.display = 'none';
+        const clienteIdInput = document.getElementById('editClienteId');
+        if(clienteIdInput) clienteIdInput.value = '';
+        const selectedDiv = document.getElementById('editClienteSelected');
+        if(selectedDiv) selectedDiv.style.display = 'none';
+        const inputBuscar = document.getElementById('editInputBuscarCliente');
+        if(inputBuscar) {
+            inputBuscar.style.display = 'block';
+            inputBuscar.value = '';
+        }
+        const dropdown = document.getElementById('editClienteDropdown');
+        if(dropdown) dropdown.style.display = 'none';
+        const seccionCrear = document.getElementById('editSeccionCrearCliente');
+        if(seccionCrear) seccionCrear.style.display = 'none';
     }
 
-    document.getElementById('btnEditClearCliente').addEventListener('click', editLimpiarClienteSeleccionado);
-    document.getElementById('btnEditCerrarCrearCliente').addEventListener('click', () => {
-        document.getElementById('editSeccionCrearCliente').style.display = 'none';
-    });
+    const editClearBtn = document.getElementById('btnEditClearCliente');
+    if(editClearBtn) editClearBtn.addEventListener('click', editLimpiarClienteSeleccionado);
+    const editCerrarCrear = document.getElementById('btnEditCerrarCrearCliente');
+    if(editCerrarCrear) {
+        editCerrarCrear.addEventListener('click', () => {
+            const seccion = document.getElementById('editSeccionCrearCliente');
+            if(seccion) seccion.style.display = 'none';
+        });
+    }
 
-    // Crear cliente rápido en modal editar
+    // Validación de nuevo cliente en editar (simplificada, igual que la de crear)
+    const editCodigoPais = document.getElementById('editNuevoCodigoPais');
+    if(editCodigoPais) {
+        editCodigoPais.addEventListener('change', function () {
+            const help = document.getElementById('editNuevoTelefonoHelp');
+            const digitos = digitosRequeridosCliente[this.value];
+            const numeroInput = document.getElementById('editNuevoNumeroTelefono');
+            if(numeroInput) numeroInput.value = '';
+            if (help) {
+                if (digitos) {
+                    help.textContent = `Requiere exactamente ${digitos} dígitos`;
+                    help.style.color = 'var(--cb-primary)';
+                } else {
+                    help.textContent = 'Selecciona un código de país';
+                    help.style.color = 'var(--cb-text-muted)';
+                }
+            }
+            editLimpiarErrorCampo('editErrTelefono');
+        });
+    }
+
+    const editNumeroTelefono = document.getElementById('editNuevoNumeroTelefono');
+    if(editNumeroTelefono) {
+        editNumeroTelefono.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '');
+            editLimpiarErrorCampo('editErrTelefono');
+        });
+    }
+
     function editMostrarErrorCampo(id, msg) {
         const el = document.getElementById(id);
-        el.textContent = msg;
-        el.style.display = 'block';
+        if(el) {
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
     }
     function editLimpiarErrorCampo(id) {
         const el = document.getElementById(id);
-        el.textContent = '';
-        el.style.display = 'none';
+        if(el) {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
     }
     function editLimpiarTodosLosErrores() {
         ['editErrNombre','editErrApellido','editErrCorreo','editErrTelefono'].forEach(editLimpiarErrorCampo);
     }
-    ['editNuevoNombre','editNuevoApellido','editNuevoCorreo','editNuevoTelefono'].forEach((inputId, i) => {
-        const errId = ['editErrNombre','editErrApellido','editErrCorreo','editErrTelefono'][i];
-        document.getElementById(inputId).addEventListener('input', () => editLimpiarErrorCampo(errId));
-    });
+
+    const editNombre = document.getElementById('editNuevoNombre');
+    if(editNombre) editNombre.addEventListener('input', () => editLimpiarErrorCampo('editErrNombre'));
+    const editApellido = document.getElementById('editNuevoApellido');
+    if(editApellido) editApellido.addEventListener('input', () => editLimpiarErrorCampo('editErrApellido'));
+    const editCorreo = document.getElementById('editNuevoCorreo');
+    if(editCorreo) editCorreo.addEventListener('input', () => editLimpiarErrorCampo('editErrCorreo'));
+    if(editNumeroTelefono) editNumeroTelefono.addEventListener('input', () => editLimpiarErrorCampo('editErrTelefono'));
 
     function editValidarNuevoCliente() {
         let valido = true;
         editLimpiarTodosLosErrores();
-        const nombre   = document.getElementById('editNuevoNombre').value.trim();
-        const apellido = document.getElementById('editNuevoApellido').value.trim();
-        const correo   = document.getElementById('editNuevoCorreo').value.trim();
-        const telefono = document.getElementById('editNuevoTelefono').value.trim();
+        const nombre = document.getElementById('editNuevoNombre')?.value.trim() || '';
+        const apellido = document.getElementById('editNuevoApellido')?.value.trim() || '';
+        const correo = document.getElementById('editNuevoCorreo')?.value.trim() || '';
+        const codigo = document.getElementById('editNuevoCodigoPais')?.value || '';
+        const numero = document.getElementById('editNuevoNumeroTelefono')?.value.trim() || '';
+
         if (!nombre) {
             editMostrarErrorCampo('editErrNombre', 'El nombre es requerido.');
             valido = false;
-        } else if (!new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(nombre)) {
-            editMostrarErrorCampo('editErrNombre', 'Solo se permiten letras.');
+        } else if (nombre.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombre)) {
+            editMostrarErrorCampo('editErrNombre', 'Solo letras, mínimo 2 caracteres.');
             valido = false;
         }
-        if (apellido && !new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(apellido)) {
-            editMostrarErrorCampo('editErrApellido', 'Solo se permiten letras.');
+        if (!apellido) {
+            editMostrarErrorCampo('editErrApellido', 'El apellido es requerido.');
+            valido = false;
+        } else if (apellido.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(apellido)) {
+            editMostrarErrorCampo('editErrApellido', 'Solo letras, mínimo 2 caracteres.');
             valido = false;
         }
-        if (correo && !new RegExp("^[^\\s@@]+@@[^\\s@@]+\\.[^\\s@@]{2,}$").test(correo)) {
+        if (!correo) {
+            editMostrarErrorCampo('editErrCorreo', 'El correo es requerido.');
+            valido = false;
+        } else if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]{2,}$/.test(correo)) {
             editMostrarErrorCampo('editErrCorreo', 'Ingresa un correo válido.');
             valido = false;
         }
-        if (telefono && !new RegExp("^\\d{8}$").test(telefono)) {
-            editMostrarErrorCampo('editErrTelefono', 'El teléfono debe tener exactamente 8 dígitos.');
+        if (!codigo) {
+            editMostrarErrorCampo('editErrTelefono', 'Selecciona un código de país.');
             valido = false;
+        } else if (!numero) {
+            editMostrarErrorCampo('editErrTelefono', 'El número de teléfono es requerido.');
+            valido = false;
+        } else {
+            const digitosNecesarios = digitosRequeridosCliente[codigo];
+            if (!digitosNecesarios) {
+                editMostrarErrorCampo('editErrTelefono', 'Código de país no reconocido.');
+                valido = false;
+            } else if (numero.length !== digitosNecesarios) {
+                editMostrarErrorCampo('editErrTelefono', `El número debe tener exactamente ${digitosNecesarios} dígitos para ${codigo}. Tienes ${numero.length}.`);
+                valido = false;
+            }
         }
         return valido;
     }
 
-    document.getElementById('btnEditGuardarNuevoCliente').addEventListener('click', async () => {
-        if (!editValidarNuevoCliente()) return;
-        const dto = {
-            nombre:   document.getElementById('editNuevoNombre').value.trim(),
-            apellido: document.getElementById('editNuevoApellido').value.trim() || null,
-            correo:   document.getElementById('editNuevoCorreo').value.trim() || null,
-            telefono: document.getElementById('editNuevoTelefono').value.trim() || null
-        };
-        const btn = document.getElementById('btnEditGuardarNuevoCliente');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
-        try {
-            const resp = await fetch('/Admin/CrearClienteRapido', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dto)
-            });
-            if (resp.ok) {
-                const nuevo = await resp.json();
-                editSeleccionarCliente(nuevo);
-                editLimpiarTodosLosErrores();
-                ['editNuevoNombre','editNuevoApellido','editNuevoCorreo','editNuevoTelefono']
-                    .forEach(id => document.getElementById(id).value = '');
-            } else {
-                const err = await resp.json();
-                alert(err.error ?? 'Error al crear el cliente.');
+    const editGuardarClienteBtn = document.getElementById('btnEditGuardarNuevoCliente');
+    if(editGuardarClienteBtn) {
+        editGuardarClienteBtn.addEventListener('click', async () => {
+            if (!editValidarNuevoCliente()) return;
+            const codigo = document.getElementById('editNuevoCodigoPais')?.value || '';
+            const numero = document.getElementById('editNuevoNumeroTelefono')?.value.trim() || '';
+            const dto = {
+                nombre: document.getElementById('editNuevoNombre')?.value.trim() || '',
+                apellido: document.getElementById('editNuevoApellido')?.value.trim() || '',
+                correo: document.getElementById('editNuevoCorreo')?.value.trim() || '',
+                telefono: `${codigo}|${numero}`
+            };
+            const btn = document.getElementById('btnEditGuardarNuevoCliente');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
             }
-        } catch (e) {
-            alert('Error de conexión.');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
-        }
-    });
+            try {
+                const resp = await fetch('/Admin/CrearClienteRapido', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dto)
+                });
+                if (resp.ok) {
+                    const nuevo = await resp.json();
+                    editSeleccionarCliente(nuevo);
+                    editLimpiarTodosLosErrores();
+                    ['editNuevoNombre','editNuevoApellido','editNuevoCorreo','editNuevoNumeroTelefono'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.value = '';
+                    });
+                    const codigoSelect = document.getElementById('editNuevoCodigoPais');
+                    if(codigoSelect) codigoSelect.value = '';
+                    const help = document.getElementById('editNuevoTelefonoHelp');
+                    if(help) help.textContent = 'Selecciona un código de país';
+                } else {
+                    const err = await resp.json();
+                    alert(err.error ?? 'Error al crear el cliente.');
+                }
+            } catch (e) {
+                alert('Error de conexión.');
+            } finally {
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
+                }
+            }
+        });
+    }
 
     // =========================================
     // BUSCADOR GLOBAL (filtrar píldoras)
     // =========================================
-    document.getElementById('buscadorHuesped').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase().trim();
-        if (!q) {
-            renderPildoras(todasLasReservas);
-            return;
-        }
-        const filtradas = todasLasReservas.filter(r => {
-            const nombre = `${r.cliente?.nombre ?? ''} ${r.cliente?.apellido ?? ''}`.toLowerCase();
-            const correo = (r.cliente?.correo ?? '').toLowerCase();
-            return nombre.includes(q) || correo.includes(q);
+    const buscadorHuesped = document.getElementById('buscadorHuesped');
+    if(buscadorHuesped) {
+        buscadorHuesped.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            if (!q) {
+                renderPildoras(todasLasReservas);
+                return;
+            }
+            const filtradas = todasLasReservas.filter(r => {
+                const nombre = `${r.cliente?.nombre ?? ''} ${r.cliente?.apellido ?? ''}`.toLowerCase();
+                const correo = (r.cliente?.correo ?? '').toLowerCase();
+                return nombre.includes(q) || correo.includes(q);
+            });
+            renderPildoras(filtradas);
+            document.querySelectorAll('.cal-pill').forEach(p => p.classList.add('resaltada'));
         });
-        renderPildoras(filtradas);
-        // Resaltar
-        document.querySelectorAll('.cal-pill').forEach(p => p.classList.add('resaltada'));
-    });
+    }
 
     // =========================================
-    // NAVEGACIÓN DE MES
+    // NAVEGACIÓN DE MES (con optional chaining para evitar errores)
     // =========================================
-    document.getElementById('btnMesAnterior').addEventListener('click', () => {
-        mesActual.setMonth(mesActual.getMonth() - 1);
-        renderCalendario();
-        cargarReservas();
-    });
+    const btnMesAnt = document.getElementById('btnMesAnterior');
+    if(btnMesAnt) {
+        btnMesAnt.addEventListener('click', () => {
+            mesActual.setMonth(mesActual.getMonth() - 1);
+            renderCalendario();
+            cargarReservas();
+        });
+    }
 
-    document.getElementById('btnMesSiguiente').addEventListener('click', () => {
-        mesActual.setMonth(mesActual.getMonth() + 1);
-        renderCalendario();
-        cargarReservas();
-    });
+    const btnMesSig = document.getElementById('btnMesSiguiente');
+    if(btnMesSig) {
+        btnMesSig.addEventListener('click', () => {
+            mesActual.setMonth(mesActual.getMonth() + 1);
+            renderCalendario();
+            cargarReservas();
+        });
+    }
 
-    document.getElementById('btnHoy').addEventListener('click', () => {
-        mesActual = new Date();
-        mesActual.setDate(1);
-        renderCalendario();
-        cargarReservas();
-
-        // Scroll al día de hoy
-        setTimeout(() => {
-            const hoy = new Date();
-            const wrap = document.getElementById('timelineWrap');
-            const diaHoy = hoy.getDate();
-            wrap.scrollLeft = (diaHoy - 3) * 44;
-        }, 100);
-    });
+    const btnHoy = document.getElementById('btnHoy');
+    if(btnHoy) {
+        btnHoy.addEventListener('click', () => {
+            mesActual = new Date();
+            mesActual.setDate(1);
+            renderCalendario();
+            cargarReservas();
+            setTimeout(() => {
+                const hoy = new Date();
+                const wrap = document.getElementById('timelineWrap');
+                const diaHoy = hoy.getDate();
+                if(wrap) wrap.scrollLeft = (diaHoy - 3) * 44;
+            }, 100);
+        });
+    }
 
     // =========================================
-    // EXPORTAR ICS (multi-habitación)
+    // EXPORTAR ICS
     // =========================================
     function exportarICS() {
         if (RECURSOS.length === 1) {
             window.location.href = `/Admin/ExportarICS/${RECURSOS[0].recursoid}`;
         } else {
-            // Exportar la primera habitación como ejemplo o mostrar modal de selección
             const recursoid = RECURSOS[0]?.recursoid;
             if (recursoid) window.location.href = `/Admin/ExportarICS/${recursoid}`;
         }
     }
 
-    // =========================================
-    // BIND EVENTOS (llamado en DOMContentLoaded)
-    // =========================================
     function bindEventos() {
-        // Los eventos inline ya están registrados arriba con addEventListener.
-        // Esta función existe por si se necesita inicialización adicional.
+        // Ya todos los eventos están asignados de forma segura con condicionales
     }
 
-    // =========================================
-    // UTILS
-    // =========================================
     function formatDate(d) {
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
