@@ -745,20 +745,86 @@ namespace Coco_Beach.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearClienteRapido([FromBody] PersonaCreateDto dto)
         {
+            // ── Campos obligatorios ──────────────────────────────────────────────
             if (string.IsNullOrWhiteSpace(dto.nombre))
                 return BadRequest(new { error = "El nombre es requerido." });
 
-            // Buscar rol "Cliente" — ajusta el rolid según tu BD
+            if (string.IsNullOrWhiteSpace(dto.apellido))
+                return BadRequest(new { error = "El apellido es requerido." });
+
+            if (string.IsNullOrWhiteSpace(dto.correo))
+                return BadRequest(new { error = "El correo es requerido." });
+
+            if (string.IsNullOrWhiteSpace(dto.telefono))
+                return BadRequest(new { error = "El teléfono es requerido." });
+
+            // ── Solo letras en nombre y apellido ────────────────────────────────
+            var soloLetras = new System.Text.RegularExpressions.Regex(
+                @"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$");
+
+            if (!soloLetras.IsMatch(dto.nombre.Trim()) || dto.nombre.Trim().Length < 2)
+                return BadRequest(new { error = "El nombre solo puede contener letras y debe tener al menos 2 caracteres." });
+
+            if (!soloLetras.IsMatch(dto.apellido.Trim()) || dto.apellido.Trim().Length < 2)
+                return BadRequest(new { error = "El apellido solo puede contener letras y debe tener al menos 2 caracteres." });
+
+            // ── Formato de correo ────────────────────────────────────────────────
+            var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+            if (!emailRegex.IsMatch(dto.correo))
+                return BadRequest(new { error = "El formato del correo no es válido." });
+
+            // ── Correo único ─────────────────────────────────────────────────────
+            bool correoExiste = await _context.persona.AnyAsync(p => p.correo == dto.correo);
+            if (correoExiste)
+                return BadRequest(new { error = "Este correo ya está registrado." });
+
+            // ── Teléfono: formato obligatorio +prefijo|numero ────────────────────
+            if (!dto.telefono.Contains("|"))
+                return BadRequest(new { error = "El teléfono debe tener el formato +prefijo|número." });
+
+            var partesTel = dto.telefono.Split('|');
+            if (partesTel.Length != 2
+                || string.IsNullOrWhiteSpace(partesTel[0])
+                || string.IsNullOrWhiteSpace(partesTel[1]))
+                return BadRequest(new { error = "El teléfono debe tener el formato +prefijo|número." });
+
+            string codigoPais = partesTel[0];
+            string numeroTelefono = partesTel[1];
+
+            if (!numeroTelefono.All(char.IsDigit))
+                return BadRequest(new { error = "El número de teléfono solo debe contener dígitos." });
+
+            var digitosRequeridos = new Dictionary<string, int>
+    {
+        {"+1", 10}, {"+52", 10},
+        {"+501", 7}, {"+502", 8}, {"+503", 8}, {"+504", 8},
+        {"+505", 8}, {"+506", 8}, {"+507", 8},
+        {"+53", 8}, {"+509", 8}, {"+1809", 10},
+        {"+1876", 10}, {"+1787", 10},
+        {"+54", 10}, {"+55", 11}, {"+56", 9},
+        {"+57", 10}, {"+58", 10}, {"+51", 9},
+        {"+591", 8}, {"+593", 9}, {"+595", 9},
+        {"+598", 8}, {"+592", 7}, {"+597", 7}
+    };
+
+            if (!digitosRequeridos.ContainsKey(codigoPais))
+                return BadRequest(new { error = $"Código de país '{codigoPais}' no reconocido." });
+
+            int digitosNecesarios = digitosRequeridos[codigoPais];
+            if (numeroTelefono.Length != digitosNecesarios)
+                return BadRequest(new { error = $"El número debe tener exactamente {digitosNecesarios} dígitos para {codigoPais}." });
+
+            // ── Crear persona ─────────────────────────────────────────────────────
             var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre.ToLower().Contains("cliente"));
 
             var nuevaPersona = new persona
             {
-                nombre = dto.nombre,
-                apellido = dto.apellido,
-                correo = dto.correo,
-                telefono = dto.telefono,
+                nombre = dto.nombre.Trim(),
+                apellido = dto.apellido.Trim(),
+                correo = dto.correo.Trim(),
+                telefono = dto.telefono,   // ya viene como +prefijo|numero desde el JS
                 rolid = rolCliente?.rolid,
-                estado = true 
+                estado = true
             };
 
             _context.persona.Add(nuevaPersona);
@@ -778,9 +844,9 @@ namespace Coco_Beach.Controllers
         public class PersonaCreateDto
         {
             public string nombre { get; set; } = "";
-            public string? apellido { get; set; }
-            public string? correo { get; set; }
-            public string? telefono { get; set; }
+            public string apellido { get; set; } = "";
+            public string correo { get; set; } = "";
+            public string telefono { get; set; } = "";
         }
 
         // ==============================================

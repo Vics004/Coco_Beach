@@ -266,15 +266,55 @@
                                     <div class="campo-error" id="errNombre" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <input type="text" class="cb-form-control" id="nuevoApellido" placeholder="Apellido" />
+                                    <input type="text" class="cb-form-control" id="nuevoApellido" placeholder="Apellido *" />
                                     <div class="campo-error" id="errApellido" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <input type="email" class="cb-form-control" id="nuevoCorreo" placeholder="Correo" />
+                                    <input type="email" class="cb-form-control" id="nuevoCorreo" placeholder="Correo *" />
                                     <div class="campo-error" id="errCorreo" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
+                                <!-- Teléfono con selector de prefijo -->
                                 <div class="col-md-6">
-                                    <input type="tel" class="cb-form-control" id="nuevoTelefono" placeholder="Teléfono (ej: 12345678)" />
+                                    <div class="row g-1">
+                                        <div class="col-5">
+                                            <select class="cb-form-control" id="nuevoCodigoPais" style="font-size:12px;">
+                                                <option value="">Código *</option>
+                                                <option value="+1">+1 (USA/Canadá)</option>
+                                                <option value="+52">+52 (México)</option>
+                                                <option value="+501">+501 (Belice)</option>
+                                                <option value="+502">+502 (Guatemala)</option>
+                                                <option value="+503">+503 (El Salvador)</option>
+                                                <option value="+504">+504 (Honduras)</option>
+                                                <option value="+505">+505 (Nicaragua)</option>
+                                                <option value="+506">+506 (Costa Rica)</option>
+                                                <option value="+507">+507 (Panamá)</option>
+                                                <option value="+53">+53 (Cuba)</option>
+                                                <option value="+509">+509 (Haití)</option>
+                                                <option value="+1809">+1-809 (R. Dominicana)</option>
+                                                <option value="+1876">+1-876 (Jamaica)</option>
+                                                <option value="+1787">+1-787 (Puerto Rico)</option>
+                                                <option value="+54">+54 (Argentina)</option>
+                                                <option value="+55">+55 (Brasil)</option>
+                                                <option value="+56">+56 (Chile)</option>
+                                                <option value="+57">+57 (Colombia)</option>
+                                                <option value="+58">+58 (Venezuela)</option>
+                                                <option value="+51">+51 (Perú)</option>
+                                                <option value="+591">+591 (Bolivia)</option>
+                                                <option value="+593">+593 (Ecuador)</option>
+                                                <option value="+595">+595 (Paraguay)</option>
+                                                <option value="+598">+598 (Uruguay)</option>
+                                                <option value="+592">+592 (Guyana)</option>
+                                                <option value="+597">+597 (Surinam)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-7">
+                                            <input type="text" class="cb-form-control" id="nuevoNumeroTelefono"
+                                                   placeholder="Número *" maxlength="11" />
+                                        </div>
+                                    </div>
+                                    <small id="nuevoTelefonoHelp" style="font-size:11px;color:var(--cb-text-muted);">
+                                        Selecciona un código de país
+                                    </small>
                                     <div class="campo-error" id="errTelefono" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
                                 <div class="col-12">
@@ -406,15 +446,55 @@
                                     <div class="campo-error" id="editErrNombre" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <input type="text" class="cb-form-control" id="editNuevoApellido" placeholder="Apellido" />
+                                    <input type="text" class="cb-form-control" id="editNuevoApellido" placeholder="Apellido *" />
                                     <div class="campo-error" id="editErrApellido" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <input type="email" class="cb-form-control" id="editNuevoCorreo" placeholder="Correo" />
+                                    <input type="email" class="cb-form-control" id="editNuevoCorreo" placeholder="Correo *" />
                                     <div class="campo-error" id="editErrCorreo" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
+                                <!-- Teléfono con selector de prefijo -->
                                 <div class="col-md-6">
-                                    <input type="tel" class="cb-form-control" id="editNuevoTelefono" placeholder="Teléfono (ej: 12345678)" />
+                                    <div class="row g-1">
+                                        <div class="col-5">
+                                            <select class="cb-form-control" id="editNuevoCodigoPais" style="font-size:12px;">
+                                                <option value="">Código *</option>
+                                                <option value="+1">+1 (USA/Canadá)</option>
+                                                <option value="+52">+52 (México)</option>
+                                                <option value="+501">+501 (Belice)</option>
+                                                <option value="+502">+502 (Guatemala)</option>
+                                                <option value="+503">+503 (El Salvador)</option>
+                                                <option value="+504">+504 (Honduras)</option>
+                                                <option value="+505">+505 (Nicaragua)</option>
+                                                <option value="+506">+506 (Costa Rica)</option>
+                                                <option value="+507">+507 (Panamá)</option>
+                                                <option value="+53">+53 (Cuba)</option>
+                                                <option value="+509">+509 (Haití)</option>
+                                                <option value="+1809">+1-809 (R. Dominicana)</option>
+                                                <option value="+1876">+1-876 (Jamaica)</option>
+                                                <option value="+1787">+1-787 (Puerto Rico)</option>
+                                                <option value="+54">+54 (Argentina)</option>
+                                                <option value="+55">+55 (Brasil)</option>
+                                                <option value="+56">+56 (Chile)</option>
+                                                <option value="+57">+57 (Colombia)</option>
+                                                <option value="+58">+58 (Venezuela)</option>
+                                                <option value="+51">+51 (Perú)</option>
+                                                <option value="+591">+591 (Bolivia)</option>
+                                                <option value="+593">+593 (Ecuador)</option>
+                                                <option value="+595">+595 (Paraguay)</option>
+                                                <option value="+598">+598 (Uruguay)</option>
+                                                <option value="+592">+592 (Guyana)</option>
+                                                <option value="+597">+597 (Surinam)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-7">
+                                            <input type="text" class="cb-form-control" id="editNuevoNumeroTelefono"
+                                                   placeholder="Número *" maxlength="11" />
+                                        </div>
+                                    </div>
+                                    <small id="editNuevoTelefonoHelp" style="font-size:11px;color:var(--cb-text-muted);">
+                                        Selecciona un código de país
+                                    </small>
                                     <div class="campo-error" id="editErrTelefono" style="display:none;color:var(--cb-danger);font-size:11px;margin-top:3px;"></div>
                                 </div>
                                 <div class="col-12">
@@ -1059,7 +1139,7 @@
     }
 
     .cliente-dropdown {
-        position: absolute;
+        position: relative;
         top: calc(100% + 4px);
         left: 0;
         right: 0;
@@ -2222,74 +2302,124 @@
     // =========================================
     // GUARDAR NUEVO CLIENTE
     // =========================================
-    function mostrarErrorCampo(idError, mensaje) {
+        const digitosRequeridosCliente = {
+        '+1':10,'+52':10,
+        '+501':7,'+502':8,'+503':8,'+504':8,'+505':8,'+506':8,'+507':8,
+        '+53':8,'+509':8,'+1809':10,'+1876':10,'+1787':10,
+        '+54':10,'+55':11,'+56':9,'+57':10,'+58':10,'+51':9,
+        '+591':8,'+593':9,'+595':9,'+598':8,'+592':7,'+597':7
+    };
+
+        // Actualizar mensaje de ayuda al cambiar código de país
+    document.getElementById('nuevoCodigoPais').addEventListener('change', function () {
+        const help  = document.getElementById('nuevoTelefonoHelp');
+        const digitos = digitosRequeridosCliente[this.value];
+        document.getElementById('nuevoNumeroTelefono').value = '';
+        if (digitos) {
+            help.textContent = `Requiere exactamente ${digitos} dígitos`;
+            help.style.color = 'var(--cb-primary)';
+        } else {
+            help.textContent = 'Selecciona un código de país';
+            help.style.color = 'var(--cb-text-muted)';
+        }
+        limpiarErrorCampo('errTelefono');
+    });
+
+        // Solo permitir dígitos en el campo número
+    document.getElementById('nuevoNumeroTelefono').addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '');
+        limpiarErrorCampo('errTelefono');
+    });
+
+        function mostrarErrorCampo(idError, mensaje) {
         const el = document.getElementById(idError);
         el.textContent = mensaje;
         el.style.display = 'block';
     }
-    function limpiarErrorCampo(idError) {
+        function limpiarErrorCampo(idError) {
         const el = document.getElementById(idError);
         el.textContent = '';
         el.style.display = 'none';
     }
-    function limpiarTodosLosErrores() {
+        function limpiarTodosLosErrores() {
         ['errNombre','errApellido','errCorreo','errTelefono'].forEach(limpiarErrorCampo);
     }
-    function limpiarErrorAlEscribir(inputId, errorId) {
-        document.getElementById(inputId).addEventListener('input', () => limpiarErrorCampo(errorId));
-    }
-    limpiarErrorAlEscribir('nuevoNombre',   'errNombre');
-    limpiarErrorAlEscribir('nuevoApellido', 'errApellido');
-    limpiarErrorAlEscribir('nuevoCorreo',   'errCorreo');
-    limpiarErrorAlEscribir('nuevoTelefono', 'errTelefono');
+
+        // Limpiar errores al escribir
+    document.getElementById('nuevoNombre').addEventListener('input',         () => limpiarErrorCampo('errNombre'));
+    document.getElementById('nuevoApellido').addEventListener('input',       () => limpiarErrorCampo('errApellido'));
+    document.getElementById('nuevoCorreo').addEventListener('input',         () => limpiarErrorCampo('errCorreo'));
+    document.getElementById('nuevoNumeroTelefono').addEventListener('input', () => limpiarErrorCampo('errTelefono'));
 
     function validarNuevoCliente() {
-        let valido = true;
-        limpiarTodosLosErrores();
+    let valido = true;
+    limpiarTodosLosErrores();
 
-        const nombre   = document.getElementById('nuevoNombre').value.trim();
-        const apellido = document.getElementById('nuevoApellido').value.trim();
-        const correo   = document.getElementById('nuevoCorreo').value.trim();
-        const telefono = document.getElementById('nuevoTelefono').value.trim();
+    const nombre   = document.getElementById('nuevoNombre').value.trim();
+    const apellido = document.getElementById('nuevoApellido').value.trim();
+    const correo   = document.getElementById('nuevoCorreo').value.trim();
+    const codigo   = document.getElementById('nuevoCodigoPais').value;
+    const numero   = document.getElementById('nuevoNumeroTelefono').value.trim();
 
-        // Nombre: requerido, solo letras y espacios
-        if (!nombre) {
-            mostrarErrorCampo('errNombre', 'El nombre es requerido.');
-            valido = false;
-        } else if (!new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(nombre)) {
-            mostrarErrorCampo('errNombre', 'Solo se permiten letras.');
-            valido = false;
-        }
-
-        // Apellido: opcional, pero si se escribe algo, solo letras
-        if (apellido && !new RegExp("^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\\s'\\-]+$").test(apellido)) {
-            mostrarErrorCampo('errApellido', 'Solo se permiten letras.');
-            valido = false;
-        }
-
-        // Correo: opcional, pero si se escribe algo debe tener formato válido
-        if (correo && !new RegExp("^[^\\s@@]+@@[^\\s@@]+\\.[^\\s@@]{2,}$").test(correo)) {
-            mostrarErrorCampo('errCorreo', 'Ingresa un correo válido (ej: nombre@@dominio.com).');
-            valido = false;
-        }
-
-        // Teléfono: opcional, pero si se escribe algo debe ser exactamente 8 dígitos
-        if (telefono && !new RegExp("^\\d{8}$").test(telefono)) {
-            mostrarErrorCampo('errTelefono', 'El teléfono debe tener exactamente 8 dígitos.');
-            valido = false;
-        }
-
-        return valido;
+    // Nombre: obligatorio, solo letras, mínimo 2 chars
+    if (!nombre) {
+        mostrarErrorCampo('errNombre', 'El nombre es requerido.');
+        valido = false;
+    } else if (nombre.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombre)) {
+        mostrarErrorCampo('errNombre', 'Solo letras, mínimo 2 caracteres.');
+        valido = false;
     }
 
-    document.getElementById('btnGuardarNuevoCliente').addEventListener('click', async () => {
+    // Apellido: obligatorio, solo letras, mínimo 2 chars
+    if (!apellido) {
+        mostrarErrorCampo('errApellido', 'El apellido es requerido.');
+        valido = false;
+    } else if (apellido.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(apellido)) {
+        mostrarErrorCampo('errApellido', 'Solo letras, mínimo 2 caracteres.');
+        valido = false;
+    }
+
+    // Correo: obligatorio y con formato válido
+    if (!correo) {
+        mostrarErrorCampo('errCorreo', 'El correo es requerido.');
+        valido = false;
+    } else if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]{2,}$/.test(correo)) {
+        mostrarErrorCampo('errCorreo', 'Ingresa un correo válido (ej: nombre@@dominio.com).');
+        valido = false;
+    }
+
+    // Teléfono: código obligatorio
+    if (!codigo) {
+        mostrarErrorCampo('errTelefono', 'Selecciona un código de país.');
+        valido = false;
+    } else if (!numero) {
+        mostrarErrorCampo('errTelefono', 'El número de teléfono es requerido.');
+        valido = false;
+    } else {
+        const digitosNecesarios = digitosRequeridosCliente[codigo];
+        if (!digitosNecesarios) {
+            mostrarErrorCampo('errTelefono', 'Código de país no reconocido.');
+            valido = false;
+        } else if (numero.length !== digitosNecesarios) {
+            mostrarErrorCampo('errTelefono', `El número debe tener exactamente ${digitosNecesarios} dígitos para ${codigo}. Tienes ${numero.length}.`);
+            valido = false;
+        }
+    }
+
+    return valido;
+}
+
+        document.getElementById('btnGuardarNuevoCliente').addEventListener('click', async () => {
         if (!validarNuevoCliente()) return;
+
+        const codigo = document.getElementById('nuevoCodigoPais').value;
+        const numero = document.getElementById('nuevoNumeroTelefono').value.trim();
 
         const dto = {
             nombre:   document.getElementById('nuevoNombre').value.trim(),
-            apellido: document.getElementById('nuevoApellido').value.trim() || null,
-            correo:   document.getElementById('nuevoCorreo').value.trim() || null,
-            telefono: document.getElementById('nuevoTelefono').value.trim() || null
+            apellido: document.getElementById('nuevoApellido').value.trim(),
+            correo:   document.getElementById('nuevoCorreo').value.trim(),
+            telefono: `${codigo}|${numero}`
         };
 
         const btn = document.getElementById('btnGuardarNuevoCliente');
@@ -2307,14 +2437,16 @@
                 const nuevo = await resp.json();
                 seleccionarCliente(nuevo);
                 limpiarTodosLosErrores();
-                ['nuevoNombre','nuevoApellido','nuevoCorreo','nuevoTelefono']
+                ['nuevoNombre','nuevoApellido','nuevoCorreo','nuevoNumeroTelefono']
                     .forEach(id => document.getElementById(id).value = '');
+                document.getElementById('nuevoCodigoPais').value = '';
+                document.getElementById('nuevoTelefonoHelp').textContent = 'Selecciona un código de país';
             } else {
                 const err = await resp.json();
-                alert(err.error ?? 'Error al crear el cliente.');
+                mostrarAlerta(err.error ?? 'Error al crear el cliente.');
             }
         } catch (e) {
-            alert('Error de conexión.');
+            mostrarAlerta('Error de conexión.');
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar cliente y continuar';
