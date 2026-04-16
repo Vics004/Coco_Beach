@@ -2,6 +2,7 @@
 using Coco_Beach.Servicios;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
 
 using System.Text;
@@ -21,15 +22,41 @@ namespace Coco_Beach.Controllers
         // GET: usuario
         // GET: Admin
         [AutenticationAttribute.Autenticacion]
-        public async Task<IActionResult> UsuarioIndex()
+        public async Task<IActionResult> UsuarioIndex(string search, string rol, bool? estado)
         {
-            var personasConUsuario = await _context.persona
+            var query = _context.persona
                 .Include(p => p.rol)
-                .Where(p => _context.usuario.Any(u => u.personaid == p.personaid))
-                .ToListAsync();
+                .AsQueryable();
+
+            var personasConUsuario = await query.ToListAsync();
+
+            // Formatear teléfono
+            foreach (var persona in personasConUsuario)
+            {
+                if (!string.IsNullOrEmpty(persona.telefono))
+                    persona.telefono = persona.telefono.Replace("|", " ");
+            }
+
+            // Serializar solo lo necesario para el JS del cliente
+            var paraJS = personasConUsuario.Select(u => new
+            {
+                u.personaid,
+                u.nombre,
+                u.apellido,
+                u.correo,
+                u.estado,
+                u.rolid,
+                telefono = u.telefono ?? "",
+                rolNombre = u.rol?.nombre ?? ""
+            }).ToList();
+
+            ViewBag.Roles = await _context.rol.ToListAsync();
+            ViewBag.UsuariosJson = System.Text.Json.JsonSerializer.Serialize(paraJS);
 
             return View(personasConUsuario);
         }
+
+
 
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Create
@@ -44,30 +71,135 @@ namespace Coco_Beach.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UsuarioCreate(
-            [Bind("nombre,apellido,correo,rolid,estado,telefono")] persona persona,
-            string password)
+           [Bind("nombre,apellido,correo,rolid,estado,telefono")] persona persona,
+           string password)
         {
+            // 🔥 IMPORTANTE: Extraer código y número ANTES de la validación
+            string codigoPais = "";
+            string numeroTelefono = "";
+            if (!string.IsNullOrWhiteSpace(persona.telefono) && persona.telefono.Contains("|"))
+            {
+                var parts = persona.telefono.Split('|');
+                if (parts.Length == 2)
+                {
+                    codigoPais = parts[0];
+                    numeroTelefono = parts[1];
+                }
+            }
+
+            // Validación adicional del teléfono en el servidor
+            if (!string.IsNullOrWhiteSpace(persona.telefono) && persona.telefono.Contains("|"))
+            {
+                var parts = persona.telefono.Split('|');
+                if (parts.Length == 2)
+                {
+                    string codigo = parts[0];
+                    string numero = parts[1];
+
+                    // Definir los mismos requisitos que en el cliente
+                    var digitosRequeridos = new Dictionary<string, int>
+            {
+                 {"+1", 10}, {"+52", 10},
+
+                {"+501", 7}, {"+502", 8}, {"+503", 8}, {"+504", 8},
+                {"+505", 8}, {"+506", 8}, {"+507", 8},
+
+                {"+53", 8}, {"+509", 8}, {"+1809", 10},
+                {"+1876", 10}, {"+1787", 10},
+
+                {"+54", 10}, {"+55", 11}, {"+56", 9},
+                {"+57", 10}, {"+58", 10}, {"+51", 9},
+
+                {"+591", 8}, {"+593", 9}, {"+595", 9},
+                {"+598", 8}, {"+592", 7}, {"+597", 7}
+            };
+
+                    if (digitosRequeridos.ContainsKey(codigo))
+                    {
+                        int digitosNecesarios = digitosRequeridos[codigo];
+                        if (numero.Length != digitosNecesarios)
+                        {
+                            ModelState.AddModelError("telefono", $"El número debe tener exactamente {digitosNecesarios} dígitos para {codigo}");
+                        }
+                    }
+                }
+            }
+
+            // Obtener el rol Cliente de la base de datos
+            var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre == "Cliente");
+
+            // Determinar si el rol seleccionado es Cliente
+            bool esRolCliente = (rolCliente != null && persona.rolid == rolCliente.rolid);
+
+            // 🔥 IMPORTANTE: Limpiar el error de contraseña ANTES de validar ModelState
+            // Si es cliente, removemos cualquier error relacionado con la contraseña
+            if (esRolCliente)
+            {
+                ModelState.Remove("password"); // Elimina password del ModelState
+                password = null; // Forzamos a null
+            }
+
+            // Validar que el rol existe en la DB
+            var rolExiste = await _context.rol.AnyAsync(r => r.rolid == persona.rolid);
+            if (!rolExiste)
+            {
+                ModelState.AddModelError("rolid", "El rol seleccionado no es válido.");
+            }
+
+            // Solo validar contraseña si NO es cliente
+            if (!esRolCliente)
+            {
+                ModelState.Remove("password");
+
+                if (string.IsNullOrWhiteSpace(password))
+                {
+                    ModelState.AddModelError("password", "La contraseña es obligatoria para este rol.");
+                }
+                else if (password.Length < 8)
+                {
+                    ModelState.AddModelError("password", "La contraseña debe tener al menos 8 caracteres.");
+                }
+            }
+            // Validar correo único
+            bool correoExiste = await _context.persona
+                .AnyAsync(p => p.correo == persona.correo);
+
+            if (correoExiste)
+            {
+                ModelState.AddModelError("correo", "Este correo ya está registrado.");
+            }
+            // Ahora sí verificamos si el modelo es válido
             if (ModelState.IsValid)
             {
+                // Guardar Persona
+
                 _context.persona.Add(persona);
+
                 await _context.SaveChangesAsync();
 
-                var usuario = new usuario
+                // Crear usuario solo si NO es cliente
+                if (!esRolCliente)
                 {
-                    personaid = persona.personaid,
-                    password = password  // ← TODO: Hashear 
-                };
-
-                _context.usuario.Add(usuario);
-                await _context.SaveChangesAsync();
+                    var usuario = new usuario
+                    {
+                        personaid = persona.personaid,
+                        password = password // ⚠️ RECUERDA: Encriptar la contraseña
+                    };
+                    _context.usuario.Add(usuario);
+                    await _context.SaveChangesAsync();
+                }
 
                 return RedirectToAction(nameof(UsuarioIndex));
             }
 
+            // 🔥 IMPORTANTE: Guardar los valores de teléfono para restaurarlos en la vista
+            ViewBag.CodigoPais = codigoPais;
+            ViewBag.NumeroTelefono = numeroTelefono;
+            ViewBag.Password = password; // Guardar contraseña para restaurarla (solo si no es cliente)
             ViewBag.RolSelect = new SelectList(_context.rol, "rolid", "nombre", persona.rolid);
+
             return View(persona);
         }
-
         [AutenticationAttribute.Autenticacion]
         // GET: Admin/Edit/5
         public async Task<IActionResult> UsuarioEdit(int? id)
@@ -75,7 +207,7 @@ namespace Coco_Beach.Controllers
             if (id == null) return NotFound();
 
             var persona = await _context.persona.FindAsync(id);
-            if (persona == null || !_context.usuario.Any(u => u.personaid == id))
+            if (persona == null )
                 return NotFound();
 
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
@@ -88,18 +220,136 @@ namespace Coco_Beach.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UsuarioEdit(int id,
-            [Bind("personaid,nombre,apellido,correo,rolid,estado,telefono")] persona persona)
+    [Bind("personaid,nombre,apellido,correo,rolid,estado,telefono")] persona persona,
+    string password)
         {
             if (id != persona.personaid) return NotFound();
+
+            // Validación adicional del teléfono en el servidor
+            if (!string.IsNullOrWhiteSpace(persona.telefono) && persona.telefono.Contains("|"))
+            {
+                var parts = persona.telefono.Split('|');
+                if (parts.Length == 2)
+                {
+                    string codigo = parts[0];
+                    string numero = parts[1];
+
+                    // Definir los mismos requisitos que en el cliente
+                    var digitosRequeridos = new Dictionary<string, int>
+            {
+                {"+1", 10}, {"+52", 10},
+
+                {"+501", 7}, {"+502", 8}, {"+503", 8}, {"+504", 8},
+                {"+505", 8}, {"+506", 8}, {"+507", 8},
+
+                {"+53", 8}, {"+509", 8}, {"+1809", 10},
+                {"+1876", 10}, {"+1787", 10},
+
+                {"+54", 10}, {"+55", 11}, {"+56", 9},
+                {"+57", 10}, {"+58", 10}, {"+51", 9},
+
+                {"+591", 8}, {"+593", 9}, {"+595", 9},
+                {"+598", 8}, {"+592", 7}, {"+597", 7}
+
+            };
+
+                    if (digitosRequeridos.ContainsKey(codigo))
+                    {
+                        int digitosNecesarios = digitosRequeridos[codigo];
+                        if (numero.Length != digitosNecesarios)
+                        {
+                            ModelState.AddModelError("telefono", $"El número debe tener exactamente {digitosNecesarios} dígitos para {codigo}");
+                        }
+                    }
+                }
+            }
+
+            // Obtener el rol Cliente
+            var rolCliente = await _context.rol.FirstOrDefaultAsync(r => r.nombre == "Cliente");
+
+            // Determinar si el rol seleccionado es Cliente
+            bool esRolCliente = (rolCliente != null && persona.rolid == rolCliente.rolid);
+
+            // Si es cliente, eliminamos la validación de password
+            if (esRolCliente)
+            {
+                ModelState.Remove("password");
+                password = null;
+            }
+            else
+            {
+                // Si no es cliente, validamos la contraseña SOLO si es requerida
+                var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
+
+                // Solo requerimos contraseña si NO existe un usuario previo
+                if(string.IsNullOrEmpty(password))
+                {
+                    ModelState.Remove("password");
+
+                }
+                else if(usuarioExistente == null && string.IsNullOrWhiteSpace(password))
+                {
+                    ModelState.AddModelError("password", "La contraseña es obligatoria para este rol.");
+                }
+                else if (!string.IsNullOrWhiteSpace(password) && password.Length < 8)
+                {
+                    ModelState.AddModelError("password", "La contraseña debe tener al menos 8 caracteres.");
+                }
+            }
+            // Validar correo único
+            bool correoExiste = await _context.persona
+                .AnyAsync(p => p.correo == persona.correo);
+
+            if (correoExiste)
+            {
+                ModelState.AddModelError("correo", "Este correo ya está registrado.");
+            }
 
             if (ModelState.IsValid)
             {
                 try
                 {
+                    // Actualizar la persona
                     _context.Update(persona);
-
-
                     await _context.SaveChangesAsync();
+
+                    // Manejar la tabla usuario según el rol
+                    if (esRolCliente)
+                    {
+                        // Si es cliente, eliminamos su usuario si existe
+                        var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
+                        if (usuarioExistente != null)
+                        {
+                            _context.usuario.Remove(usuarioExistente);
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+                    else
+                    {
+                        // Si no es cliente
+                        if (!string.IsNullOrWhiteSpace(password))
+                        {
+                            // Si proporcionó contraseña, actualizamos o creamos
+                            var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
+                            if (usuarioExistente != null)
+                            {
+                                // Actualizar contraseña existente
+                                usuarioExistente.password = password; // ⚠️ Recuerda encriptar
+                                _context.usuario.Update(usuarioExistente);
+                            }
+                            else
+                            {
+                                // Crear nuevo usuario
+                                var nuevoUsuario = new usuario
+                                {
+                                    personaid = persona.personaid,
+                                    password = password // ⚠️ Recuerda encriptar
+                                };
+                                _context.usuario.Add(nuevoUsuario);
+                            }
+                            await _context.SaveChangesAsync();
+                        }
+                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -110,12 +360,12 @@ namespace Coco_Beach.Controllers
                 return RedirectToAction(nameof(UsuarioIndex));
             }
 
+            // Si falló, recargar el SelectList
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
             return View(persona);
         }
 
         [AutenticationAttribute.Autenticacion]
-        // GET: Admin/Delete/5
         public async Task<IActionResult> UsuarioDelete(int? id)
         {
             if (id == null) return NotFound();
@@ -126,28 +376,23 @@ namespace Coco_Beach.Controllers
 
             if (persona == null) return NotFound();
 
+            // Opcional: evitar desactivar a alguien ya inactivo
+            if (!persona.estado) return RedirectToAction(nameof(UsuarioIndex));
+
             return View(persona);
         }
-
-        [AutenticationAttribute.Autenticacion]
         // POST: Admin/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
+        [AutenticationAttribute.Autenticacion]
+        [HttpPost]
+        [ActionName("DeleteConfirmed")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var usuario = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
-            if (usuario != null)
-            {
-                _context.usuario.Remove(usuario);
-            }
-
             var persona = await _context.persona.FindAsync(id);
-            if (persona != null)
-            {
-                _context.persona.Remove(persona);
-            }
+            if (persona == null) return NotFound();
 
+            persona.estado = false;
             await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(UsuarioIndex));
         }
 
@@ -513,7 +758,7 @@ namespace Coco_Beach.Controllers
                 correo = dto.correo,
                 telefono = dto.telefono,
                 rolid = rolCliente?.rolid,
-                estado = "Activo"
+                estado = true 
             };
 
             _context.persona.Add(nuevaPersona);

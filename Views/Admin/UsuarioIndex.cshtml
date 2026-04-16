@@ -16,11 +16,38 @@
                 <p>Administración de accesos y perfiles del sistema</p>
             </div>
         </div>
-        <a asp-action="UsuarioCreate" class="cb-btn cb-btn-outline cb-btn-nuevo-usuario">
+        <a asp-action="UsuarioCreate" class="cb-btn cb-btn-header">
             <i class="bi bi-plus-lg"></i> Nuevo Usuario
         </a>
     </div>
-
+    <!-- Reemplaza tu <form method="get"> con esto -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <input type="text" id="filtroSearch" class="cb-form-control"
+                   placeholder="Buscar por nombre o correo..." />
+        </div>
+        <div class="col-md-3">
+            <select id="filtroRol" class="cb-form-control">
+                <option value="">-- Todos los roles --</option>
+                @foreach (var rol in ViewBag.Roles)
+                {
+                    <option value="@rol.nombre">@rol.nombre</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select id="filtroEstado" class="cb-form-control">
+                <option value="">-- Todos --</option>
+                <option value="true">Activo</option>
+                <option value="false">Inactivo</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <a asp-action="UsuarioIndex" class="cb-btn cb-btn-outline w-100">
+                <i class="bi bi-x-lg"></i>
+            </a>
+        </div>
+    </div>
     <!-- Tabla de usuarios -->
     <div class="cb-card">
         <div class="cb-card-body">
@@ -64,16 +91,23 @@
                                     }
                                 </td>
                                 <td>
-                                    <span class="cb-badge cb-badge-success">@item.estado</span>
+                                    <span class="cb-badge @(item.estado ? "cb-badge-success" : "cb-badge-danger")">
+                                        @(item.estado ? "Activo" : "Inactivo")
+                                    </span>
                                 </td>
                                 <td style="color:var(--cb-text-muted);">@item.telefono</td>
                                 <td class="text-end">
+                                    
+									@if (item.estado)
+									{
+                                        <a asp-action="UsuarioDelete" asp-route-id="@item.personaid" class="cb-btn cb-btn-danger btn-sm">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+									}
                                     <a asp-action="UsuarioEdit" asp-route-id="@item.personaid" class="cb-btn cb-btn-warning btn-sm me-1">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <a asp-action="UsuarioDelete" asp-route-id="@item.personaid" class="cb-btn cb-btn-danger btn-sm">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
+                                    
                                 </td>
                             </tr>
                         }
@@ -95,11 +129,10 @@
 </div>
 
 <style>
-    /* Botón Nuevo Usuario */
-    .cb-btn-nuevo-usuario {
+    .cb-btn-header {
         background: rgba(255, 255, 255, 0.15);
         color: #fff;
-        border-color: rgba(255, 255, 255, 0.4);
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
         padding: 0.6rem 1.2rem;
         display: inline-flex;
         align-items: center;
@@ -113,7 +146,7 @@
         z-index: 10;
     }
 
-        .cb-btn-nuevo-usuario:hover {
+        .cb-btn-header:hover {
             background: rgba(255, 255, 255, 0.25);
             border-color: rgba(255, 255, 255, 0.6);
             transform: translateY(-1px);
@@ -121,12 +154,79 @@
             text-decoration: none;
         }
 
-        .cb-btn-nuevo-usuario:active {
+        .cb-btn-header:active {
             transform: translateY(0);
         }
 
-        /* Asegurar que el icono también sea clickeable */
-        .cb-btn-nuevo-usuario i {
+        .cb-btn-header i {
             pointer-events: none;
         }
 </style>
+<script>
+    const todosLosUsuarios = @Html.Raw(ViewBag.UsuariosJson);
+    const tbody = document.querySelector('.cb-table tbody');
+
+    function renderUsuarios(lista) {
+        if (lista.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="cb-alert cb-alert-info mt-2">
+                            <i class="bi bi-info-circle-fill"></i>
+                            No se encontraron usuarios.
+                        </div>
+                    </td>
+                </tr>`;
+            return;
+        }
+
+        tbody.innerHTML = lista.map(u => `
+            <tr>
+                <td><span style="font-weight:600; color:var(--cb-text-main);">${u.nombre} ${u.apellido}</span></td>
+                <td style="color:var(--cb-text-muted);">${u.correo}</td>
+                <td>
+                    ${u.rolid
+                        ? `<span class="cb-badge cb-badge-info">${u.rolNombre}</span>`
+                        : `<span class="cb-badge cb-badge-muted">Sin rol</span>`}
+                </td>
+                <td>
+                    <span class="cb-badge ${u.estado ? 'cb-badge-success' : 'cb-badge-danger'}">
+                        ${u.estado ? 'Activo' : 'Inactivo'}
+                    </span>
+                </td>
+                <td style="color:var(--cb-text-muted);">${u.telefono}</td>
+                <td class="text-end">
+                    <a href="/Admin/UsuarioEdit/${u.personaid}" class="cb-btn cb-btn-warning btn-sm me-1">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <a href="/Admin/UsuarioDelete/${u.personaid}" class="cb-btn cb-btn-danger btn-sm">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function aplicarFiltros() {
+        const q = document.getElementById('filtroSearch').value.toLowerCase().trim();
+        const rol = document.getElementById('filtroRol').value;
+        const estado = document.getElementById('filtroEstado').value;
+
+        const filtrados = todosLosUsuarios.filter(u => {
+            const nombreCompleto = `${u.nombre} ${u.apellido}`.toLowerCase();
+            const correo = (u.correo ?? '').toLowerCase();
+
+            const matchSearch = !q || nombreCompleto.includes(q) || correo.includes(q);
+            const matchRol = !rol || u.rolNombre === rol;
+            const matchEstado = estado === '' || String(u.estado) === estado;
+
+            return matchSearch && matchRol && matchEstado;
+        });
+
+        renderUsuarios(filtrados);
+    }
+
+    document.getElementById('filtroSearch').addEventListener('input', aplicarFiltros);
+    document.getElementById('filtroRol').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
+</script>

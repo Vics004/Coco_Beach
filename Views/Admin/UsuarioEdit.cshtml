@@ -3,11 +3,19 @@
 @{
     ViewData["Title"] = "Editar Usuario";
     Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+
+    // Separar el teléfono en código y número
+    string codigoPais = "";
+    string numeroTelefono = "";
+    if (!string.IsNullOrEmpty(Model.telefono) && Model.telefono.Contains("|"))
+    {
+        var partes = Model.telefono.Split('|');
+        codigoPais = partes[0];
+        numeroTelefono = partes[1];
+    }
 }
 
 <div class="container-fluid">
-
-    <!-- Cabecera de página -->
     <div class="cb-page-header">
         <div class="d-flex align-items-center">
             <i class="bi bi-pencil-square cb-page-header-icon"></i>
@@ -21,16 +29,16 @@
         </a>
     </div>
 
-    <!-- Formulario -->
     <div class="cb-card">
         <div class="cb-card-body">
-
-            <form asp-action="UsuarioEdit" method="post">
+            <form asp-action="UsuarioEdit" method="post" id="formUsuario">
                 <div asp-validation-summary="ModelOnly" class="cb-alert cb-alert-danger mb-4"></div>
                 <input type="hidden" asp-for="personaid" />
+                <input type="hidden" asp-for="telefono" id="telefono_completo" />
+                <input type="hidden" id="codigoPaisGuardado" value="@codigoPais" />
+                <input type="hidden" id="numeroTelefonoGuardado" value="@numeroTelefono" />
 
                 <div class="row g-4">
-
                     <div class="col-md-6">
                         <label class="cb-label">Nombre</label>
                         <input asp-for="nombre" class="cb-form-control" placeholder="Nombre" />
@@ -49,25 +57,81 @@
                         <span asp-validation-for="correo" class="text-danger" style="font-size:12px;"></span>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="cb-label">Teléfono</label>
-                        <input asp-for="telefono" class="cb-form-control" maxlength="9" placeholder="Ej. 7000-0000" />
-                    </div>
 
                     <div class="col-md-6">
                         <label class="cb-label">Rol</label>
-                        <select asp-for="rolid" class="cb-form-control" asp-items="ViewBag.RolSelect">
+                        <select asp-for="rolid" id="rolSelector" class="cb-form-control" asp-items="ViewBag.RolSelect">
                             <option value="">-- Seleccionar rol --</option>
                         </select>
                         <span asp-validation-for="rolid" class="text-danger" style="font-size:12px;"></span>
                     </div>
 
                     <div class="col-md-6">
+                        <label class="cb-label">Teléfono</label>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <select id="codigoPais" class="cb-form-control">
+                                    <option value="">-- Seleccionar código --</option>
+                                    <!-- Norteamérica -->
+                                    <option value="+1">+1 (USA/Canadá) </option>
+                                    <option value="+52">+52 (México) </option>
+
+                                    <!-- Centroamérica -->
+                                    <option value="+501">+501 (Belice)</option>
+                                    <option value="+502">+502 (Guatemala) </option>
+                                    <option value="+503">+503 (El Salvador) </option>
+                                    <option value="+504">+504 (Honduras) </option>
+                                    <option value="+505">+505 (Nicaragua) </option>
+                                    <option value="+506">+506 (Costa Rica)</option>
+                                    <option value="+507">+507 (Panamá) </option>
+
+                                    <!-- Caribe -->
+                                    <option value="+53">+53 (Cuba) </option>
+                                    <option value="+509">+509 (Haití) </option>
+                                    <option value="+1809">+1-809 (Rep. Dominicana) </option>
+                                    <option value="+1876">+1-876 (Jamaica) </option>
+                                    <option value="+1787">+1-787 (Puerto Rico)</option>
+
+                                    <!-- Sudamérica -->
+                                    <option value="+54">+54 (Argentina) </option>
+                                    <option value="+55">+55 (Brasil) </option>
+                                    <option value="+56">+56 (Chile) </option>
+                                    <option value="+57">+57 (Colombia)</option>
+                                    <option value="+58">+58 (Venezuela)</option>
+                                    <option value="+51">+51 (Perú) </option>
+                                    <option value="+591">+591 (Bolivia) </option>
+                                    <option value="+593">+593 (Ecuador) </option>
+                                    <option value="+595">+595 (Paraguay)</option>
+                                    <option value="+598">+598 (Uruguay) </option>
+                                    <option value="+592">+592 (Guyana) </option>
+                                    <option value="+597">+597 (Surinam) </option>
+                                </select>
+                            </div>
+                            <div class="col-8">
+                                <input type="text" id="numeroTelefono" class="cb-form-control" placeholder="Ej. 70000000" />
+                                <small id="telefonoHelp" class="text-muted" style="font-size: 12px;">Selecciona un código de país para ver el formato requerido</small>
+                            </div>
+                        </div>
+                        <span id="telefonoError" class="text-danger" style="font-size:12px; display:none;"></span>
+                        <span asp-validation-for="telefono" class="text-danger" style="font-size:12px;"></span>
+                    </div>
+
+                    <div class="col-md-6" id="passwordSection">
+                        <label class="cb-label">Contraseña</label>
+                        <input type="password" name="password" id="passwordInput" class="cb-form-control" placeholder="••••••••••" />
+                        <small class="text-muted d-block">
+                            * Solo completa este campo si deseas cambiar la contraseña
+                        </small>
+                        @Html.ValidationMessage("password", "", new { @class = "text-danger", style = "font-size:12px;" })
+                    </div>
+
+                    <div class="col-md-6">
                         <label class="cb-label">Estado</label>
-                        <select asp-for="estado" class="cb-form-control">
-                            <option value="Activo">Activo</option>
-                            <option value="Desactivado">Desactivado</option>
+                        <select asp-for="estado" class="cb-form-control" id="estadoSelect">
+                            <option value="true">Activo</option>
+                            <option value="false">Inactivo</option>
                         </select>
+                        <span asp-validation-for="estado" class="text-danger" style="font-size:12px;"></span>
                     </div>
 
                 </div>
@@ -78,17 +142,176 @@
                     <button type="submit" class="cb-btn cb-btn-primary">
                         <i class="bi bi-check-lg"></i> Actualizar Usuario
                     </button>
-                    <a asp-action="UsuarioIndex" class="cb-btn cb-btn-outline">
-                        Cancelar
-                    </a>
+                    <a asp-action="UsuarioIndex" class="cb-btn cb-btn-outline">Cancelar</a>
                 </div>
-
             </form>
         </div>
     </div>
-
 </div>
 
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(document).ready(function () {
+            const $passSection = $('#passwordSection');
+            const $passInput = $('#passwordInput');
+            const $rolSelect = $('#rolSelector');
+            const $codigoPais = $('#codigoPais');
+            const $numeroTelefono = $('#numeroTelefono');
+            const $telefonoCompleto = $('#telefono_completo');
+            const $telefonoError = $('#telefonoError');
+            const $telefonoHelp = $('#telefonoHelp');
+
+            // Cargar valores guardados desde los hidden fields
+            const codigoGuardado = $('#codigoPaisGuardado').val();
+            const numeroGuardado = $('#numeroTelefonoGuardado').val();
+
+            // Configuración de dígitos requeridos por código de país
+                    const digitosRequeridos = {
+                '+1': 10,
+                '+52': 10,
+
+                '+501': 7,
+                '+502': 8,
+                '+503': 8,
+                '+504': 8,
+                '+505': 8,
+                '+506': 8,
+                '+507': 8,
+
+                '+53': 8,
+                '+509': 8,
+                '+1809': 10,
+                '+1876': 10,
+                '+1787': 10,
+
+                '+54': 10,
+                '+55': 11,
+                '+56': 9,
+                '+57': 10,
+                '+58': 10,
+                '+51': 9,
+                '+591': 8,
+                '+593': 9,
+                '+595': 9,
+                '+598': 8,
+                '+592': 7,
+                '+597': 7
+            };
+
+            // Función para validar el teléfono
+            function validarTelefono() {
+                let codigo = $codigoPais.val();
+                let numero = $numeroTelefono.val().replace(/\D/g, '');
+                let digitosNecesarios = digitosRequeridos[codigo];
+
+                // Limpiar errores previos
+                $telefonoError.hide();
+                $telefonoError.text('');
+                $numeroTelefono.removeClass('is-invalid');
+
+                if (!codigo) {
+                    $telefonoError.text('Por favor, selecciona un código de país');
+                    $telefonoError.show();
+                    return false;
+                }
+
+                if (!numero) {
+                    $telefonoError.text('Por favor, ingresa un número de teléfono');
+                    $telefonoError.show();
+                    return false;
+                }
+
+                if (numero.length !== digitosNecesarios) {
+                    $telefonoError.text(`El número debe tener exactamente ${digitosNecesarios} dígitos para ${codigo}. Actualmente tiene ${numero.length} dígitos.`);
+                    $telefonoError.show();
+                    $numeroTelefono.addClass('is-invalid');
+                    return false;
+                }
+
+                return true;
+            }
+
+            // Función para actualizar el mensaje de ayuda
+            function actualizarMensajeAyuda() {
+                let codigo = $codigoPais.val();
+                if (codigo && digitosRequeridos[codigo]) {
+                    $telefonoHelp.html(`Formato requerido: ${digitosRequeridos[codigo]} dígitos (solo números)`);
+                    $telefonoHelp.removeClass('text-muted').addClass('text-info');
+                } else if (codigo) {
+                    $telefonoHelp.html(`Formato no especificado para este código`);
+                } else {
+                    $telefonoHelp.html('Selecciona un código de país para ver el formato requerido');
+                    $telefonoHelp.removeClass('text-info').addClass('text-muted');
+                }
+            }
+
+            // Función para actualizar el teléfono completo
+            function actualizarTelefonoCompleto() {
+                let codigo = $codigoPais.val();
+                let numero = $numeroTelefono.val().replace(/\D/g, '');
+
+                if (codigo && numero && validarTelefono()) {
+                    $telefonoCompleto.val(codigo + '|' + numero);
+                } else {
+                    $telefonoCompleto.val('');
+                }
+            }
+
+            // Establecer valores guardados al cargar la página
+            if (codigoGuardado) {
+                $codigoPais.val(codigoGuardado);
+            }
+            if (numeroGuardado) {
+                $numeroTelefono.val(numeroGuardado);
+            }
+
+            // Eventos para validación en tiempo real
+            $codigoPais.on('change', function() {
+                validarTelefono();
+                actualizarMensajeAyuda();
+                actualizarTelefonoCompleto();
+            });
+
+            $numeroTelefono.on('input', function() {
+                // Solo permitir números
+                $(this).val($(this).val().replace(/[^0-9]/g, ''));
+                validarTelefono();
+                actualizarTelefonoCompleto();
+            });
+
+            // Función para mostrar/ocultar contraseña según rol
+            function togglePassword() {
+                let selectedText = $rolSelect.find('option:selected').text().trim();
+
+                if (selectedText.toLowerCase() === "cliente") {
+                    $passSection.hide();
+                    $passInput.val('');
+                } else {
+                    $passSection.show();
+                }
+            }
+
+            $rolSelect.on('change', togglePassword);
+            togglePassword();
+
+            // Inicializar mensajes y validación
+            actualizarMensajeAyuda();
+            validarTelefono();
+            actualizarTelefonoCompleto();
+
+            // Validación antes de enviar el formulario
+            $('#formUsuario').on('submit', function(e) {
+                if (!validarTelefono()) {
+                    e.preventDefault();
+                    $numeroTelefono.focus();
+                    return false;
+                }
+                actualizarTelefonoCompleto();
+            });
+        });
+    </script>
+}
 <style>
     /* Botón Volver - mismo estilo que Nuevo Usuario */
     .cb-btn-volver {
@@ -126,6 +349,4 @@
         }
 </style>
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}
+
