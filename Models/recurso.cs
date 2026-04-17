@@ -11,7 +11,6 @@ namespace Coco_Beach.Models
         [StringLength(100, MinimumLength = 3, ErrorMessage = "El nombre debe tener entre 3 y 100 caracteres.")]
         public string? nombre { get; set; }
 
-        [Required(ErrorMessage = "El estado de la habitación es obligatorio.")]
         public bool? libre { get; set; }
 
         [StringLength(500, ErrorMessage = "La descripción no puede superar los 500 caracteres.")]
