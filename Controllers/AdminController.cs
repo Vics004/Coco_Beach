@@ -298,7 +298,7 @@ namespace Coco_Beach.Controllers
             }
             // Validar correo único
             bool correoExiste = await _context.persona
-                .AnyAsync(p => p.correo == persona.correo);
+                .AnyAsync(p => p.correo == persona.correo && p.personaid != id);
 
             if (correoExiste)
             {
