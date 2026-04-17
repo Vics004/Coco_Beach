@@ -411,7 +411,23 @@ namespace Coco_Beach.Controllers
         [AutenticationAttribute.Autenticacion]
         public async Task<IActionResult> RecursoIndex()
         {
-            var recursos = await _context.recurso.ToListAsync();
+            var recursos = await _context.recurso
+                .OrderBy(r => r.recursoid)   // ← Orden ascendente por ID
+                .ToListAsync();
+
+            // Serializar solo lo necesario para el JS del cliente
+            var paraJS = recursos.Select(r => new
+            {
+                r.recursoid,
+                r.nombre,
+                r.descripcion,
+                r.capacidad,
+                r.precio,
+                libre = r.libre ?? false
+            }).ToList();
+
+            ViewBag.RecursosJson = System.Text.Json.JsonSerializer.Serialize(paraJS);
+
             return View(recursos);
         }
 

@@ -29,6 +29,26 @@
         </div>
     }
 
+    <!-- Filtros de búsqueda -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-5">
+            <input type="text" id="filtroSearch" class="cb-form-control"
+                   placeholder="Buscar por nombre..." />
+        </div>
+        <div class="col-md-4">
+            <select id="filtroEstado" class="cb-form-control">
+                <option value="">-- Todos los estados --</option>
+                <option value="true">Disponible</option>
+                <option value="false">Ocupada</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline w-100">
+                <i class="bi bi-x-lg"></i> Limpiar
+            </a>
+        </div>
+    </div>
+
     <!-- Tabla de recursos -->
     <div class="cb-card">
         <div class="cb-card-body">
@@ -49,50 +69,15 @@
                             <th>Precio / Noche</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
-                        </thead>
-                    <tbody>
-                        @foreach (var item in Model)
-                        {
-                            <tr>
-                                <td><span class="fw-semibold">@item.recursoid</span></td>
-                                <td><span style="font-weight:600; color:var(--cb-text-main);">@item.nombre</span></td>
-                                <td><span class="badge bg-secondary">@item.capacidad personas</span></td>
-                                <td><span style="font-weight:600; color:var(--cb-primary);">$@item.precio?.ToString("N0")</span></td>
-                                <td>
-                                    @if (item.libre == true)
-                                    {
-                                        <span class="cb-badge cb-badge-success">Disponible</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="cb-badge cb-badge-danger">Ocupada</span>
-                                    }
-                                </td>
-                                <td class="text-end">
-                                    <a asp-action="RecursoEdit" asp-route-id="@item.recursoid" class="cb-btn cb-btn-warning btn-sm me-1">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a asp-action="RecursoDelete" asp-route-id="@item.recursoid" class="cb-btn cb-btn-danger btn-sm">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
-                                </td>
-                                </tr>
-                            }
+                    </thead>
+                    <tbody id="tablaRecursosBody">
+                        <!-- Las filas se generarán dinámicamente con JavaScript -->
                     </tbody>
                 </table>
             </div>
 
-            @if (!Model.Any())
-            {
-                <div class="cb-alert cb-alert-info mt-4">
-                    <i class="bi bi-info-circle-fill"></i>
-                    No hay espacios registradas en el sistema. ¡Comienza agregando una!
-                </div>
-            }
-
         </div>
     </div>
-
 </div>
 
 <style>
@@ -129,3 +114,86 @@
             pointer-events: none;
         }
 </style>
+
+<script>
+    // Datos de recursos enviados desde el controlador
+    const todosLosRecursos = @Html.Raw(ViewBag.RecursosJson);
+    const tbody = document.getElementById('tablaRecursosBody');
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function (m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function renderRecursos(lista) {
+        if (lista.length === 0) {
+            tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="cb-alert cb-alert-info mt-2">
+                                <i class="bi bi-info-circle-fill"></i>
+                                No se encontraron recursos.
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            return;
+        }
+
+        tbody.innerHTML = lista.map(r => `
+                <tr>
+                    <td><span class="fw-semibold">${r.recursoid}</span></td>
+                    <td><span style="font-weight:600; color:var(--cb-text-main);">${escapeHtml(r.nombre)}</span></td>
+                    <td><span class="badge bg-secondary">${r.capacidad} personas</span></td>
+                    <td><span style="font-weight:600; color:var(--cb-primary);">$${r.precio?.toLocaleString()}</span></td>
+                    <td>
+                        ${r.libre
+                ? '<span class="cb-badge cb-badge-success">Disponible</span>'
+                : '<span class="cb-badge cb-badge-danger">Ocupada</span>'}
+                    </td>
+                    <td class="text-end">
+                        <a href="/Admin/RecursoEdit/${r.recursoid}" class="cb-btn cb-btn-warning btn-sm me-1">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="/Admin/RecursoDelete/${r.recursoid}" class="cb-btn cb-btn-danger btn-sm">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+    }
+
+    function aplicarFiltros() {
+        const texto = document.getElementById('filtroSearch').value.toLowerCase().trim();
+        const estadoFiltro = document.getElementById('filtroEstado').value; // "true", "false" o ""
+
+        const filtrados = todosLosRecursos.filter(r => {
+            // Búsqueda por nombre o descripción
+            const nombreMatch = r.nombre?.toLowerCase().includes(texto) || false;
+            const matchSearch = !texto || nombreMatch
+
+            // Filtro por estado (libre)
+            let matchEstado = true;
+            if (estadoFiltro !== '') {
+                const libreBool = r.libre === true;
+                matchEstado = libreBool === (estadoFiltro === 'true');
+            }
+
+            return matchSearch && matchEstado;
+        });
+
+        renderRecursos(filtrados);
+    }
+
+    // Eventos de los filtros
+    document.getElementById('filtroSearch').addEventListener('input', aplicarFiltros);
+    document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
+
+    // Render inicial (muestra todos)
+    aplicarFiltros();
+</script>
