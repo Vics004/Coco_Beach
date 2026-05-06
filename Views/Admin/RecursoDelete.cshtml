@@ -1,19 +1,19 @@
 ﻿@model Coco_Beach.Models.recurso
 
 @{
-    ViewData["Title"] = "Eliminar Habitación";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    ViewData["Title"] = "Deshabilitar Recurso";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid">
 
-    <!-- Cabecera de página (estilo peligro/rojo) -->
-    <div class="cb-page-header" style="background: linear-gradient(135deg, #C0392B 0%, #96281B 100%);">
+    <!-- Cabecera de página (estilo advertencia) -->
+    <div class="cb-page-header" style="background: linear-gradient(135deg, #D4881A 0%, #B56A10 100%);">
         <div class="d-flex align-items-center">
-            <i class="bi bi-trash-fill cb-page-header-icon"></i>
+            <i class="bi bi-exclamation-triangle-fill cb-page-header-icon"></i>
             <div>
                 <h2>@ViewData["Title"]</h2>
-                <p>Esta acción eliminará el espacio del sistema. Verifica antes de continuar.</p>
+                <p>Esta acción deshabilitará el recurso, ya no estará disponible para nuevas reservas.</p>
             </div>
         </div>
         <a asp-action="RecursoIndex" class="cb-btn cb-btn-volver">
@@ -25,16 +25,15 @@
     <div class="cb-card" style="max-width: 560px;">
         <div class="cb-card-body">
 
-            <!-- Alerta de advertencia -->
-            <div class="cb-alert cb-alert-danger mb-4">
+            <div class="cb-alert cb-alert-warning mb-4" style="background: #FEF3C7; color: #B45309; border-left-color: #F59E0B;">
                 <i class="bi bi-exclamation-triangle-fill" style="font-size:18px;"></i>
-                <span>¿Estás seguro de que deseas eliminar este Espacio? Esta acción no se puede deshacer.</span>
+                <span>¿Estás seguro de que deseas deshabilitar este recurso? Podrás volver a habilitarlo más tarde.</span>
             </div>
 
-            <!-- Datos de la habitación -->
+            <!-- Datos del recurso -->
             <div style="background: var(--cb-bg); border-radius: 12px; padding: 20px; border: 1px solid var(--cb-border);">
                 <div class="d-flex align-items-center gap-3 mb-3">
-                    <div style="width:48px; height:48px; border-radius:50%; background:var(--cb-danger); background-color: #FCE8EA; display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--cb-danger);">
+                    <div style="width:48px; height:48px; border-radius:50%; background:#FEF3C7; display:flex; align-items:center; justify-content:center; font-size:22px; color:#D97706;">
                         <i class="bi bi-door-closed-fill"></i>
                     </div>
                     <div>
@@ -53,8 +52,8 @@
             <form asp-action="RecursoDelete" method="post">
                 <input type="hidden" asp-for="recursoid" />
                 <div class="d-flex gap-3 mt-4">
-                    <button type="submit" class="cb-btn cb-btn-danger" style="background-color: var(--cb-danger); color:#fff; border:none;">
-                        <i class="bi bi-trash-fill"></i> Sí, eliminar definitivamente
+                    <button type="submit" class="cb-btn" style="background-color: #D97706; color:#fff; border:none;">
+                        <i class="bi bi-hand-thumbs-down-fill"></i> Sí, deshabilitar
                     </button>
                     <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline">
                         Cancelar

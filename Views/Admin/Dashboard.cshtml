@@ -1,7 +1,7 @@
 ﻿@using Coco_Beach.Models
 @{
     ViewData["Title"] = "Dashboard";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid pb-5">

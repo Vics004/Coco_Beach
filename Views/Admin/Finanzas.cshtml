@@ -1,6 +1,6 @@
 ﻿@{
     ViewData["Title"] = "Panel de Finanzas";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 
     // Acceder a los datos dinámicos
     dynamic model = Model;
@@ -26,9 +26,14 @@
                 <p>Análisis financiero de reservas por recurso</p>
             </div>
         </div>
-        <a asp-action="RecursoIndex" class="cb-btn cb-btn-volver">
-            <i class="bi bi-arrow-left"></i> Volver
-        </a>
+        <div class="d-flex gap-2">
+            <a asp-action="ExportarFinanzasPDF"
+               asp-route-fechaInicio="@fechaInicio.ToString("yyyy-MM-dd")"
+               asp-route-fechaFin="@fechaFin.ToString("yyyy-MM-dd")"
+               class="cb-btn cb-btn-volver" style="background: rgba(255,255,255,0.2);">
+                <i class="bi bi-file-pdf-fill"></i> Exportar PDF
+            </a>
+        </div>
     </div>
 
     <!-- Filtros de fecha -->
@@ -95,70 +100,7 @@
         </div>
     </div>
 
-    <!-- Tabla detallada -->
-    <div class="cb-card">
-        <div class="cb-card-body">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 style="font-family:var(--font-heading); font-weight:700; margin:0;">
-                    <i class="bi bi-table"></i> Detalle de Finanzas por Recurso
-                </h5>
-            </div>
-
-            <div class="table-responsive">
-                <table class="table cb-table mb-0" id="tablaFinanzas">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Recurso</th>
-                            <th>Capacidad</th>
-                            <th>Precio/Noche</th>
-                            <th>Total Reservas</th>
-                            <th>Promedio Días</th>
-                            <th>Ganancias Totales</th>
-                            <th>% Contribución</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in resumenHabitaciones)
-                        {
-                            var porcentaje = totalGanancias > 0 ? (item.GananciasTotales / totalGanancias * 100) : 0;
-                            <tr>
-                                <td>@item.recursoid</td>
-                                <td style="font-weight:600; color:var(--cb-text-main);">@item.nombre</td>
-                                <td>@item.capacidad personas</td>
-                                <td>$@item.precio?.ToString("N2")</td>
-                                <td>
-                                    <span class="cb-badge cb-badge-info">@item.TotalReservas</span>
-                                </td>
-                                <td>@item.PromedioDiasEstancia.ToString("F1") días</td>
-                                <td style="color: var(--cb-primary); font-weight:700;">$@item.GananciasTotales.ToString("N2")</td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="progress flex-grow-1" style="height: 6px; background-color: var(--cb-border); border-radius: 3px;">
-                                            <div class="progress-bar" style="width: @porcentaje%; background-color: var(--cb-primary); border-radius: 3px;"></div>
-                                        </div>
-                                        <span style="font-size: 12px; font-weight:600;">@porcentaje.ToString("F1")%</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            @if (!resumenHabitaciones.Any())
-            {
-                <div class="cb-alert cb-alert-info mt-4">
-                    <i class="bi bi-info-circle-fill"></i>
-                    No hay reservas en el rango de fechas seleccionado.
-                </div>
-            }
-        </div>
-    </div>
-
-</div>
-
-    <!-- Gráfico de barras - Ganancias por Habitación -->
+    <!-- Gráfico de barras - Ganancias por Recurso -->
     <div class="cb-card mb-4">
         <div class="cb-card-body">
             <h5 style="font-family:var(--font-heading); font-weight:700; margin-bottom: 20px;">
@@ -235,7 +177,67 @@
         </div>
     </div>
 
-    
+    <!-- Tabla detallada -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 style="font-family:var(--font-heading); font-weight:700; margin:0;">
+                    <i class="bi bi-table"></i> Detalle de Finanzas por Recurso
+                </h5>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table cb-table mb-0" id="tablaFinanzas">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Recurso</th>
+                            <th>Capacidad</th>
+                            <th>Precio/Noche</th>
+                            <th>Total Reservas</th>
+                            <th>Promedio Días</th>
+                            <th>Ganancias Totales</th>
+                            <th>% Contribución</th>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in resumenHabitaciones)
+                        {
+                            var porcentaje = totalGanancias > 0 ? (item.GananciasTotales / totalGanancias * 100) : 0;
+                            <tr>
+                                <td>@item.recursoid</td>
+                                <td style="font-weight:600; color:var(--cb-text-main);">@item.nombre</td>
+                                <td>@item.capacidad personas</td>
+                                <td>$@item.precio?.ToString("N2")</td>
+                                <td>
+                                    <span class="cb-badge cb-badge-info">@item.TotalReservas</span>
+                                </td>
+                                <td>@item.PromedioDiasEstancia.ToString("F1") días</td>
+                                <td style="color: var(--cb-primary); font-weight:700;">$@item.GananciasTotales.ToString("N2")</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 6px; background-color: var(--cb-border); border-radius: 3px;">
+                                            <div class="progress-bar" style="width: @porcentaje%; background-color: var(--cb-primary); border-radius: 3px;"></div>
+                                        </div>
+                                        <span style="font-size: 12px; font-weight:600;">@porcentaje.ToString("F1")%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!resumenHabitaciones.Any())
+            {
+                <div class="cb-alert cb-alert-info mt-4">
+                    <i class="bi bi-info-circle-fill"></i>
+                    No hay reservas en el rango de fechas seleccionado.
+                </div>
+            }
+        </div>
+    </div>
+
+</div>
 
 <style>
     .cb-btn-volver {

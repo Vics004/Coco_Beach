@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Gestión de Usuarios";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid">

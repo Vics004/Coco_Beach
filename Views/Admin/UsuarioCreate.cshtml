@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Crear Nuevo Usuario";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 
     // Recuperar valores de teléfono si existen (cuando hay error de validación)
     string codigoPais = ViewBag.CodigoPais ?? "";

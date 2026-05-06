@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Gestión de Recursos";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid">
@@ -38,8 +38,8 @@
         <div class="col-md-4">
             <select id="filtroEstado" class="cb-form-control">
                 <option value="">-- Todos los estados --</option>
-                <option value="true">Disponible</option>
-                <option value="false">Ocupada</option>
+                <option value="true">Habilitada</option>
+                <option value="false">No Habilitada</option>
             </select>
         </div>
         <div class="col-md-3">
@@ -132,40 +132,34 @@
 
     function renderRecursos(lista) {
         if (lista.length === 0) {
-            tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6">
-                            <div class="cb-alert cb-alert-info mt-2">
-                                <i class="bi bi-info-circle-fill"></i>
-                                No se encontraron recursos.
-                            </div>
-                        </td>
-                    </tr>
-                `;
+            tbody.innerHTML = `<tr><td colspan="6"><div class="cb-alert cb-alert-info mt-2"><i class="bi bi-info-circle-fill"></i> No se encontraron recursos.</div></td></tr>`;
             return;
         }
 
-        tbody.innerHTML = lista.map(r => `
-                <tr>
-                    <td><span class="fw-semibold">${r.recursoid}</span></td>
-                    <td><span style="font-weight:600; color:var(--cb-text-main);">${escapeHtml(r.nombre)}</span></td>
-                    <td><span class="badge bg-secondary">${r.capacidad} personas</span></td>
-                    <td><span style="font-weight:600; color:var(--cb-primary);">$${r.precio?.toLocaleString()}</span></td>
-                    <td>
-                        ${r.libre
-                ? '<span class="cb-badge cb-badge-success">Disponible</span>'
-                : '<span class="cb-badge cb-badge-danger">Ocupada</span>'}
-                    </td>
-                    <td class="text-end">
-                        <a href="/Admin/RecursoEdit/${r.recursoid}" class="cb-btn cb-btn-warning btn-sm me-1">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <a href="/Admin/RecursoDelete/${r.recursoid}" class="cb-btn cb-btn-danger btn-sm">
-                            <i class="bi bi-trash"></i>
-                        </a>
-                    </td>
-                </tr>
-            `).join('');
+        tbody.innerHTML = lista.map(r => {
+            // Si está habilitado (libre = true) mostrar botón eliminar; si no, mostrar etiqueta "Deshabilitado"
+            const accionEliminar = r.libre
+                ? `<a href="/Admin/RecursoDelete/${r.recursoid}" class="cb-btn cb-btn-danger btn-sm"><i class="bi bi-trash"></i></a>`
+                : `<span></span>`;
+
+            return `
+                    <tr>
+                        <td><span class="fw-semibold">${r.recursoid}</span></td>
+                        <td><span style="font-weight:600; color:var(--cb-text-main);">${escapeHtml(r.nombre)}</span></td>
+                        <td><span class="badge bg-secondary">${r.capacidad} personas</span></td>
+                        <td><span style="font-weight:600; color:var(--cb-primary);">$${r.precio?.toLocaleString()}</span></td>
+                        <td>
+                            ${r.libre
+                    ? '<span class="cb-badge cb-badge-success">Habilitado</span>'
+                    : '<span class="cb-badge cb-badge-danger">No habilitado</span>'}
+                        </td>
+                        <td class="text-end">
+                            <a href="/Admin/RecursoEdit/${r.recursoid}" class="cb-btn cb-btn-warning btn-sm me-1"><i class="bi bi-pencil"></i></a>
+                            ${accionEliminar}
+                        </td>
+                    </tr>
+                `;
+        }).join('');
     }
 
     function aplicarFiltros() {
@@ -173,27 +167,23 @@
         const estadoFiltro = document.getElementById('filtroEstado').value; // "true", "false" o ""
 
         const filtrados = todosLosRecursos.filter(r => {
-            // Búsqueda por nombre o descripción
             const nombreMatch = r.nombre?.toLowerCase().includes(texto) || false;
-            const matchSearch = !texto || nombreMatch
-
-            // Filtro por estado (libre)
+            const matchSearch = !texto || nombreMatch;
             let matchEstado = true;
             if (estadoFiltro !== '') {
                 const libreBool = r.libre === true;
                 matchEstado = libreBool === (estadoFiltro === 'true');
             }
-
             return matchSearch && matchEstado;
         });
 
         renderRecursos(filtrados);
     }
 
-    // Eventos de los filtros
+    // Eventos
     document.getElementById('filtroSearch').addEventListener('input', aplicarFiltros);
     document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
 
-    // Render inicial (muestra todos)
+    // Render inicial
     aplicarFiltros();
 </script>

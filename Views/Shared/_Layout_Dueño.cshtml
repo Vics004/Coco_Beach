@@ -551,28 +551,26 @@
         <div class="cb-nav">
             <div class="cb-nav-label">Principal</div>
 
-            <a asp-controller="Home" asp-action="Index" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="Dashboard" class="cb-menu-item">
                 <i class="bi bi-grid-fill"></i>
                 Dashboard
             </a>
 
             <div class="cb-nav-label">Gestión</div>
 
-            <a asp-controller="Finanzas" asp-action="Index" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="Finanzas" class="cb-menu-item">
                 <i class="bi bi-cash-stack"></i>
                 Finanzas
             </a>
 
             <div class="cb-nav-label">Calendarios</div>
 
-            <a asp-controller="CalendarioHotel" asp-action="Index" class="cb-menu-item">
-                <i class="bi bi-calendar2-week"></i>
-                Hotel
+            <a asp-controller="Admin" asp-action="CalendarioHotel" class="cb-menu-item">
+                <i class="bi bi-calendar2-week"></i> Hotel
             </a>
 
-            <a asp-controller="CalendarioRancho" asp-action="Index" class="cb-menu-item">
-                <i class="bi bi-calendar2-heart"></i>
-                Rancho
+            <a asp-controller="Admin" asp-action="CalendarioRancho" class="cb-menu-item">
+                <i class="bi bi-calendar2-heart"></i> Rancho
             </a>
         </div>
 

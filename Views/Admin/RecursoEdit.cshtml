@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Editar Habitación";
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid">
@@ -52,8 +52,8 @@
                     <div class="col-md-6">
                         <label asp-for="libre" class="cb-label">Estado de la Habitación</label>
                         <select asp-for="libre" class="cb-form-control">
-                            <option value="true">Disponible (Libre)</option>
-                            <option value="false">Ocupada (No disponible)</option>
+                            <option value="true">Habilitada</option>
+                            <option value="false">No Habilitada</option>
                         </select>
                         <span asp-validation-for="libre" class="text-danger" style="font-size:12px;"></span>
                     </div>

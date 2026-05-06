@@ -10,7 +10,7 @@
     var iconoHeader = esRancho ? "bi-tree-fill" : "bi-building";
 
     ViewData["Title"] = titulo;
-    Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <link rel="stylesheet" href="~/css/cocobeach.css" />

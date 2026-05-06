@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 using System.Text;
 using System.Text.Json;
@@ -21,7 +24,7 @@ namespace Coco_Beach.Controllers
         }
         // GET: usuario
         // GET: Admin
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> UsuarioIndex(string search, string rol, bool? estado)
         {
             var query = _context.persona
@@ -58,7 +61,7 @@ namespace Coco_Beach.Controllers
 
 
 
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         // GET: Admin/Create
         public IActionResult UsuarioCreate()
         {
@@ -66,7 +69,7 @@ namespace Coco_Beach.Controllers
             return View();
         }
 
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         // POST: Admin/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -200,7 +203,8 @@ namespace Coco_Beach.Controllers
 
             return View(persona);
         }
-        [AutenticationAttribute.Autenticacion]
+
+        [AuthorizeRole("Administrador")]
         // GET: Admin/Edit/5
         public async Task<IActionResult> UsuarioEdit(int? id)
         {
@@ -215,7 +219,7 @@ namespace Coco_Beach.Controllers
         }
 
 
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         // POST: Admin/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -365,7 +369,7 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> UsuarioDelete(int? id)
         {
             if (id == null) return NotFound();
@@ -382,7 +386,7 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
         // POST: Admin/Delete/5
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         [HttpPost]
         [ActionName("DeleteConfirmed")]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -408,7 +412,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         // GET: Admin/RecursoIndex
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> RecursoIndex()
         {
             var recursos = await _context.recurso
@@ -432,7 +436,7 @@ namespace Coco_Beach.Controllers
         }
 
         // GET: Admin/RecursoCreate
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         public IActionResult RecursoCreate()
         {
             return View();
@@ -441,6 +445,7 @@ namespace Coco_Beach.Controllers
         // POST: Admin/RecursoCreate
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> RecursoCreate([Bind("nombre,descripcion,capacidad,precio")] recurso recurso)
         {
             // Establecemos valores por defecto
@@ -457,7 +462,7 @@ namespace Coco_Beach.Controllers
         }
 
         // GET: Admin/RecursoEdit/5
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> RecursoEdit(int? id)
         {
             if (id == null)
@@ -476,6 +481,7 @@ namespace Coco_Beach.Controllers
         // POST: Admin/RecursoEdit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> RecursoEdit(int id, [Bind("recursoid,nombre,descripcion,capacidad,precio,libre")] recurso recurso)
         {
             if (id != recurso.recursoid)
@@ -508,7 +514,7 @@ namespace Coco_Beach.Controllers
         }
 
         // GET: Admin/RecursoDelete/5
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> RecursoDelete(int? id)
         {
             if (id == null)
@@ -526,19 +532,21 @@ namespace Coco_Beach.Controllers
             return View(recurso);
         }
 
-        // POST: Admin/RecursoDelete/5
+        // POST: Admin/RecursoDelete/5 (ya no elimina, solo deshabilita)
         [HttpPost, ActionName("RecursoDelete")]
         [ValidateAntiForgeryToken]
+        [AuthorizeRole("Administrador")]
         public async Task<IActionResult> RecursoDeleteConfirmed(int id)
         {
             var recurso = await _context.recurso.FindAsync(id);
             if (recurso != null)
             {
-                _context.recurso.Remove(recurso);
+                // En lugar de eliminar, marcamos como No Habilitado
+                recurso.libre = false;
+                _context.Update(recurso);
                 await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Habitación eliminada correctamente.";
+                TempData["SuccessMessage"] = "El recurso ha sido deshabilitado correctamente.";
             }
-
             return RedirectToAction(nameof(RecursoIndex));
         }
 
@@ -554,7 +562,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         // GET: Admin/Finanzas
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador", "Dueño")]
         public async Task<IActionResult> Finanzas(DateTime? fechaInicio, DateTime? fechaFin)
         {
             // Establecer fechas por defecto (últimos 30 días)
@@ -570,7 +578,7 @@ namespace Coco_Beach.Controllers
 
         // POST: Admin/Finanzas (para filtrar)
         [HttpPost]
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador", "Dueño")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Finanzas(DateTime fechaInicio, DateTime fechaFin)
         {
@@ -584,7 +592,7 @@ namespace Coco_Beach.Controllers
             return View(datosFinanzas);
         }
 
-        // Método privado para obtener datos de finanzas (ahora incluye TODOS los estados)
+        // Método privado para obtener datos de finanzas (excluye reservas CANCELADAS)
         private async Task<dynamic> ObtenerDatosFinanzas(DateTime fechaInicio, DateTime fechaFin)
         {
             // Convertir a UTC para PostgreSQL
@@ -594,11 +602,12 @@ namespace Coco_Beach.Controllers
             // Obtener todas las habitaciones
             var todasLasHabitaciones = await _context.recurso.ToListAsync();
 
-            // Obtener reservas en el rango de fechas (SIN filtrar por estado)
+            // Obtener reservas en el rango de fechas, EXCLUYENDO estado "Cancelado" (asumiendo id = 4)
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_inicio.HasValue &&
                             r.fecha_inicio.Value >= fechaInicioUtc &&
-                            r.fecha_inicio.Value <= fechaFinUtc)
+                            r.fecha_inicio.Value <= fechaFinUtc &&
+                            r.estadoid != 4)   // ← EXCLUIR CANCELADO
                 .ToListAsync();
 
             // Agrupar por habitación
@@ -613,7 +622,7 @@ namespace Coco_Beach.Controllers
                 })
                 .ToDictionary(k => k.RecursoId, v => v);
 
-            // Combinar habitaciones con sus reservas (incluye habitaciones sin reservas, pero luego se filtran)
+            // Combinar habitaciones con sus reservas
             var resultado = todasLasHabitaciones.Select(hab => new
             {
                 hab.recursoid,
@@ -624,7 +633,7 @@ namespace Coco_Beach.Controllers
                 GananciasTotales = reservasPorHabitacion.ContainsKey(hab.recursoid) ? reservasPorHabitacion[hab.recursoid].GananciasTotales : 0,
                 PromedioDiasEstancia = reservasPorHabitacion.ContainsKey(hab.recursoid) ? reservasPorHabitacion[hab.recursoid].PromedioDiasEstancia : 0
             })
-            .Where(r => r.TotalReservas > 0)  // Solo mostrar habitaciones con al menos una reserva
+            .Where(r => r.TotalReservas > 0)
             .OrderByDescending(r => r.GananciasTotales)
             .ToList();
 
@@ -645,6 +654,194 @@ namespace Coco_Beach.Controllers
             return viewData;
         }
 
+        // ==============================================
+        // EXPORTAR FINANZAS A PDF
+        // ==============================================
+
+        // GET: Admin/ExportarFinanzasPDF
+        [AuthorizeRole("Administrador", "Dueño")]
+        public async Task<IActionResult> ExportarFinanzasPDF(DateTime fechaInicio, DateTime fechaFin)
+        {
+            // Validar fechas
+            if (fechaInicio == DateTime.MinValue)
+                fechaInicio = DateTime.Now.AddDays(-30);
+            if (fechaFin == DateTime.MinValue)
+                fechaFin = DateTime.Now;
+
+            if (fechaInicio > fechaFin)
+            {
+                var temp = fechaInicio;
+                fechaInicio = fechaFin;
+                fechaFin = temp;
+            }
+
+            // Obtener datos
+            var datosFinanzas = await ObtenerDatosFinanzas(fechaInicio, fechaFin);
+
+            // Extraer datos a objetos fuertemente tipados para evitar dynamic
+            var resumen = new List<ResumenFinanzasPDF>();
+            double totalGanancias = 0;
+            int totalReservas = 0;
+            int totalHabitaciones = 0;
+
+            foreach (var item in datosFinanzas.ResumenHabitaciones)
+            {
+                var r = new ResumenFinanzasPDF
+                {
+                    RecursoId = item.recursoid,
+                    Nombre = item.nombre,
+                    Capacidad = item.capacidad,
+                    Precio = item.precio,
+                    TotalReservas = item.TotalReservas,
+                    GananciasTotales = item.GananciasTotales,
+                    PromedioDiasEstancia = item.PromedioDiasEstancia
+                };
+                resumen.Add(r);
+            }
+
+            totalGanancias = datosFinanzas.TotalGanancias;
+            totalReservas = datosFinanzas.TotalReservas;
+            totalHabitaciones = datosFinanzas.TotalHabitacionesConReservas;
+
+            // Generar PDF
+            var pdfBytes = CrearPDFFinanzas(resumen, totalGanancias, totalReservas, totalHabitaciones, fechaInicio, fechaFin);
+
+            return File(pdfBytes, "application/pdf", $"Reporte_Finanzas_{fechaInicio:yyyyMMdd}_{fechaFin:yyyyMMdd}.pdf");
+        }
+
+        // Clase auxiliar para datos fuertemente tipados
+        private class ResumenFinanzasPDF
+        {
+            public int RecursoId { get; set; }
+            public string Nombre { get; set; }
+            public int? Capacidad { get; set; }
+            public double? Precio { get; set; }
+            public int TotalReservas { get; set; }
+            public double GananciasTotales { get; set; }
+            public double PromedioDiasEstancia { get; set; }
+        }
+
+        private byte[] CrearPDFFinanzas(List<ResumenFinanzasPDF> resumen, double totalGanancias, int totalReservas, int totalHabitaciones, DateTime fechaInicio, DateTime fechaFin)
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(1, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10));
+
+                    // Header: se aplica padding al contenedor de la columna
+                    page.Header()
+                        .ShowOnce()
+                        .PaddingBottom(15)
+                        .Column(col =>
+                        {
+                            col.Spacing(5);
+                            col.Item().Text("Coco Beach - Reporte de Finanzas")
+                                .FontSize(16).Bold().FontColor("F5A623");
+                            col.Item().Text($"Período: {fechaInicio:dd/MM/yyyy} al {fechaFin:dd/MM/yyyy}")
+                                .FontSize(12).Italic();
+                            col.Item().Text($"Generado: {DateTime.Now:dd/MM/yyyy HH:mm:ss}")
+                                .FontSize(10).FontColor("666666");
+                        });
+
+                    // Content
+                    page.Content().PaddingVertical(10).Column(col =>
+                    {
+                        // KPIs
+                        col.Item()
+                            .PaddingBottom(15)
+                            .Row(row =>
+                            {
+                                row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
+                                {
+                                    c.Item().Text($"${totalGanancias:N2}").FontSize(14).Bold();
+                                    c.Item().Text("Ganancias Totales").FontSize(10);
+                                });
+                                row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
+                                {
+                                    c.Item().Text(totalReservas.ToString()).FontSize(14).Bold();
+                                    c.Item().Text("Reservas Realizadas").FontSize(10);
+                                });
+                                row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
+                                {
+                                    c.Item().Text(totalHabitaciones.ToString()).FontSize(14).Bold();
+                                    c.Item().Text("Recursos con Reservas").FontSize(10);
+                                });
+                            });
+
+                        
+
+                        // Título tabla detallada
+                        col.Item().PaddingBottom(8)
+                            .Text("Detalle por Recurso")
+                            .FontSize(12).Bold().Underline();
+
+                        // Tabla detallada
+                        col.Item()
+                            .PaddingBottom(10)
+                            .Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(1);
+                                    columns.RelativeColumn(1f);
+                                    columns.RelativeColumn(1);
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Background("29B6D2").Padding(5).Text("ID").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("Recurso").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("Capacidad").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("Precio/Noche").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("Total Reservas").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("Promedio Días").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("Ganancias").Bold().FontColor("FFFFFF");
+                                    header.Cell().Background("29B6D2").Padding(5).Text("% Contribución").Bold().FontColor("FFFFFF");
+                                });
+
+                                foreach (var item in resumen)
+                                {
+                                    double porcentaje = totalGanancias > 0 ? (item.GananciasTotales / totalGanancias * 100) : 0;
+                                    table.Cell().Padding(3).Text(item.RecursoId.ToString());
+                                    table.Cell().Padding(3).Text(item.Nombre);
+                                    table.Cell().Padding(3).Text($"{item.Capacidad} personas");
+                                    table.Cell().Padding(3).Text($"${item.Precio:N2}");
+                                    table.Cell().Padding(3).Text(item.TotalReservas.ToString());
+                                    table.Cell().Padding(3).Text($"{item.PromedioDiasEstancia:F1} días");
+                                    table.Cell().Padding(3).Text($"${item.GananciasTotales:N2}");
+                                    table.Cell().Padding(3).Text($"{porcentaje:F1}%");
+                                }
+                            });
+
+                        if (!resumen.Any())
+                        {
+                            col.Item().Padding(10).AlignCenter()
+                                .Text("No hay reservas en el período seleccionado.")
+                                .FontColor("E05C6B");
+                        }
+                    });
+
+                    // Footer
+                    page.Footer().PaddingTop(10).AlignCenter().Text(text =>
+                    {
+                        text.Span("Coco Beach - Reporte generado automáticamente. ");
+                        text.Span("Página ");
+                        text.CurrentPageNumber();
+                    });
+                });
+            }).GeneratePdf();
+        }
+
 
 
 
@@ -652,7 +849,7 @@ namespace Coco_Beach.Controllers
         // CALENDARIO — HOTEL (todos los recursos excepto Rancho)
         // ==============================================
 
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Encargado")]
         public async Task<IActionResult> CalendarioHotel()
         {
             var recursos = await _context.recurso
@@ -667,7 +864,7 @@ namespace Coco_Beach.Controllers
         // CALENDARIO — RANCHO (solo recurso ID 15)
         // ==============================================
 
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> CalendarioRancho()
         {
             var recursos = await _context.recurso
@@ -683,6 +880,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpGet]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> GetReservas(DateTime fechaInicio, DateTime fechaFin, string tipo = "hotel")
         {
             var fechaInicioUtc = new DateTime(fechaInicio.Year, fechaInicio.Month, fechaInicio.Day, 0, 0, 0, DateTimeKind.Utc);
@@ -731,6 +929,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpGet]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> BuscarClientes(string q)
         {
             if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
@@ -752,6 +951,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpPost]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> CrearClienteRapido([FromBody] PersonaCreateDto dto)
         {
             // ── Campos obligatorios ──────────────────────────────────────────────
@@ -863,6 +1063,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpPost]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> CrearReservaCalendario([FromBody] ReservaCreateDto dto)
         {
             // Validar que los campos requeridos estén presentes
@@ -925,6 +1126,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpGet]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> ExportarICS(int recursoid)
         {
             var recurso = await _context.recurso.FindAsync(recursoid);
@@ -995,6 +1197,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpPost]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> CambiarEstadoReserva([FromBody] CambiarEstadoDto dto)
         {
             var reserva = await _context.reserva.FindAsync(dto.reservaid);
@@ -1024,6 +1227,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         [HttpPost]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> EditarReservaCalendario([FromBody] ReservaEditDto dto)
         {
             var reserva = await _context.reserva.FindAsync(dto.reservaid);
@@ -1075,13 +1279,13 @@ namespace Coco_Beach.Controllers
             public double? preciofinal { get; set; }
         }
 
-        
+
         // ==============================================
         // DASHBOARD - INDICADORES Y DISPONIBILIDAD
         // ==============================================
 
         // GET: Admin/Dashboard
-        [AutenticationAttribute.Autenticacion]
+        [AuthorizeRole("Administrador", "Dueño")]
         public async Task<IActionResult> Dashboard(int? mes, int? anio)
         {
             // Fecha actual en UTC
