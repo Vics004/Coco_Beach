@@ -1,0 +1,267 @@
+﻿@model IEnumerable<Coco_Beach.Models.auditoria>
+
+@{
+    ViewData["Title"] = "Registro de Auditoría";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+@functions {
+    public string FormatearJson(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+            return "—";
+
+        try
+        {
+            // Deserializar el JSON a un diccionario
+            var obj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            if (obj == null || obj.Count == 0)
+                return "—";
+
+            // Construir una cadena legible: "campo: valor | campo: valor"
+            var partes = new List<string>();
+            foreach (var kvp in obj)
+            {
+                string valor = kvp.Value?.ToString() ?? "null";
+                // Truncar valores muy largos para no romper la tabla
+                if (valor.Length > 200)
+                    valor = valor.Substring(0, 97) + "...";
+                partes.Add($"{kvp.Key}: {valor}");
+            }
+            return string.Join(" | ", partes);
+        }
+        catch
+        {
+            // Si falla el parseo, mostrar el texto original truncado
+            return json.Length > 80 ? json.Substring(0, 77) + "…" : json;
+        }
+    }
+}
+
+<div class="container-fluid">
+
+    <!-- Cabecera de página -->
+    <div class="cb-page-header" style="background: linear-gradient(135deg, #F5A623 0%, #D4881A 100%);">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-journal-code cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Historial de cambios en la base de datos</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a id="btnExportarPDF"
+               href="#"
+               class="cb-btn cb-btn-volver"
+               style="background: rgba(255,255,255,0.2);">
+                <i class="bi bi-file-pdf-fill"></i> Exportar PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario de filtros -->
+    <div class="cb-card mb-4">
+        <div class="cb-card-body">
+            <form method="get" action="@Url.Action("AuditoriaIndex")" class="row g-3" id="filtrosForm">
+                <div class="col-md-3">
+                    <label class="form-label">Tabla afectada</label>
+                    <select name="tabla" class="cb-form-control">
+                        <option value="">-- Todas --</option>
+                        @foreach (var t in ViewBag.Tablas)
+                        {
+                            <option value="@t" selected="@(ViewBag.TablaSeleccionada == t)">@t</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Acción</label>
+                    <select name="accion" class="cb-form-control">
+                        <option value="">-- Todas --</option>
+                        @foreach (var a in ViewBag.Acciones)
+                        {
+                            <option value="@a" selected="@(ViewBag.AccionSeleccionada == a)">@a</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Usuario</label>
+                    <select name="usuarioId" class="cb-form-control">
+                        <option value="">-- Todos --</option>
+                        @foreach (var u in ViewBag.Usuarios)
+                        {
+                            <option value="@u.usuarioid" selected="@(ViewBag.UsuarioIdSeleccionado == u.usuarioid)">
+                                @u.NombreCompleto
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Desde</label>
+                    <input type="date" name="fechaInicio" value="@ViewBag.FechaInicio" class="cb-form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hasta</label>
+                    <input type="date" name="fechaFin" value="@ViewBag.FechaFin" class="cb-form-control" />
+                </div>
+                <div class="col-md-12 d-flex justify-content-end gap-2">
+                    <button type="submit" class="cb-btn cb-btn-primary">
+                        <i class="bi bi-search"></i> Filtrar
+                    </button>
+                    <a href="@Url.Action("AuditoriaIndex")" class="cb-btn cb-btn-outline">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de resultados -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+            <div class="table-responsive">
+                <table class="table cb-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tabla</th>
+                            <th>Registro ID</th>
+                            <th>Acción</th>
+                            <th>Valor Anterior (resumen)</th>
+                            <th>Valor Nuevo (resumen)</th>
+                            <th>Usuario</th>
+                            <th>Fecha Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Any())
+                        {
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td>@item.auditoriaid</td>
+                                    <td>@item.tabla_afectada</td>
+                                    <td>@item.registroid</td>
+                                    <td>
+                                        @{
+                                            var badgeClass = item.accion switch
+                                            {
+                                                "INSERT" => "cb-badge-success",
+                                                "UPDATE" => "cb-badge-warning",
+                                                "DELETE" => "cb-badge-danger",
+                                                _ => "cb-badge-info"
+                                            };
+                                        }
+                                        <span class="cb-badge @badgeClass">@item.accion</span>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.valor_anterior))
+                                        {
+                                            <span data-bs-toggle="tooltip" title="@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(item.valor_anterior)">
+                                                @FormatearJson(item.valor_anterior)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.valor_nuevo))
+                                        {
+                                            <span data-bs-toggle="tooltip" title="@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(item.valor_nuevo)">
+                                                @FormatearJson(item.valor_nuevo)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @{
+                                            var nombreUsuario = ViewBag.NombresUsuarios != null && ViewBag.NombresUsuarios.ContainsKey(item.usuarioid)
+                                            ? ViewBag.NombresUsuarios[item.usuarioid]
+                                            : $"ID:{item.usuarioid}";
+                                        }
+                                        @nombreUsuario
+                                    </td>
+                                    <td>@(item.fecha_accion?.ToString("dd/MM/yyyy HH:mm:ss") ?? "")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                                    <p class="mt-2 mb-0">No se encontraron registros de auditoría con los filtros aplicados.</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilo para el botón volver (igual que en Finanzas) */
+    .cb-btn-volver {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+        .cb-btn-volver:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-1px);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .cb-btn-volver:active {
+            transform: translateY(0);
+        }
+
+        .cb-btn-volver i {
+            pointer-events: none;
+        }
+</style>
+
+@section Scripts {
+    <script>
+        // Inicializar tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, { trigger: 'hover' });
+        });
+
+        // Construir dinámicamente la URL de exportación para evitar parámetros vacíos
+        document.getElementById('btnExportarPDF').addEventListener('click', function (e) {
+            e.preventDefault();
+            var form = document.getElementById('filtrosForm');
+            var formData = new FormData(form);
+            var params = new URLSearchParams();
+            for (var pair of formData.entries()) {
+                if (pair[1] !== '') {
+                    params.append(pair[0], pair[1]);
+                }
+            }
+            var url = '@Url.Action("ExportarAuditoriaPDF", "Admin")?' + params.toString();
+            window.location.href = url;
+        });
+    </script>
+}
