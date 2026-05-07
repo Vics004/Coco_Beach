@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-
 using System.Text;
 using System.Text.Json;
 
@@ -1373,6 +1372,276 @@ namespace Coco_Beach.Controllers
             return View();
         }
 
+
+        // ==============================================
+        // AUDITORÍA - LISTADO Y FILTRADO (sin navegaciones)
+        // ==============================================
+
+        [AuthorizeRole("Administrador")]
+        public async Task<IActionResult> AuditoriaIndex(
+    string? tabla,
+    string? accion,
+    int? usuarioId,
+    DateTime? fechaInicio,
+    DateTime? fechaFin,
+    string? search)
+        {
+            var query = _context.auditoria.AsQueryable();
+
+            if (!string.IsNullOrEmpty(tabla))
+                query = query.Where(a => a.tabla_afectada == tabla);
+            if (!string.IsNullOrEmpty(accion))
+                query = query.Where(a => a.accion == accion);
+            if (usuarioId.HasValue && usuarioId.Value > 0)
+                query = query.Where(a => a.usuarioid == usuarioId.Value);
+
+            // ✅ Corrección para fechas UTC
+            if (fechaInicio.HasValue)
+            {
+                var inicioUtc = DateTime.SpecifyKind(fechaInicio.Value.Date, DateTimeKind.Utc);
+                query = query.Where(a => a.fecha_accion >= inicioUtc);
+            }
+            if (fechaFin.HasValue)
+            {
+                var finUtc = DateTime.SpecifyKind(fechaFin.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                query = query.Where(a => a.fecha_accion <= finUtc);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(a =>
+                    a.tabla_afectada.Contains(search) ||
+                    a.accion.Contains(search) ||
+                    (a.valor_anterior != null && a.valor_anterior.Contains(search)) ||
+                    (a.valor_nuevo != null && a.valor_nuevo.Contains(search))
+                );
+            }
+
+            var auditorias = await query
+                .OrderByDescending(a => a.fecha_accion)
+                .ToListAsync();
+
+            // Resto del código (JOIN usuarios, ViewBags, etc.) igual...
+            var userIds = auditorias.Select(a => a.usuarioid).Distinct().ToList();
+            var usuariosInfo = await (
+                from u in _context.usuario
+                join p in _context.persona on u.personaid equals p.personaid
+                where userIds.Contains(u.usuarioid)
+                select new { u.usuarioid, NombreCompleto = p.nombre + " " + p.apellido }
+            ).ToDictionaryAsync(k => k.usuarioid, v => v.NombreCompleto);
+
+            ViewBag.NombresUsuarios = usuariosInfo;
+            ViewBag.Tablas = await _context.auditoria.Select(a => a.tabla_afectada).Distinct().OrderBy(t => t).ToListAsync();
+            ViewBag.Acciones = await _context.auditoria.Select(a => a.accion).Distinct().OrderBy(a => a).ToListAsync();
+            ViewBag.Usuarios = await (
+                from u in _context.usuario
+                join p in _context.persona on u.personaid equals p.personaid
+                orderby p.nombre
+                select new { u.usuarioid, NombreCompleto = p.nombre + " " + p.apellido }
+            ).ToListAsync();
+
+            ViewBag.TablaSeleccionada = tabla;
+            ViewBag.AccionSeleccionada = accion;
+            ViewBag.UsuarioIdSeleccionado = usuarioId;
+            ViewBag.FechaInicio = fechaInicio?.ToString("yyyy-MM-dd");
+            ViewBag.FechaFin = fechaFin?.ToString("yyyy-MM-dd");
+            ViewBag.SearchText = search;
+
+            return View(auditorias);
+        }
+
+        [AuthorizeRole("Administrador")]
+        public async Task<IActionResult> ExportarAuditoriaPDF(
+     string? tabla,
+     string? accion,
+     int? usuarioId,
+     DateTime? fechaInicio,
+     DateTime? fechaFin,
+     string? search)
+        {
+            var query = _context.auditoria.AsQueryable();
+
+            if (!string.IsNullOrEmpty(tabla))
+                query = query.Where(a => a.tabla_afectada == tabla);
+            if (!string.IsNullOrEmpty(accion))
+                query = query.Where(a => a.accion == accion);
+            if (usuarioId.HasValue && usuarioId.Value > 0)
+                query = query.Where(a => a.usuarioid == usuarioId.Value);
+
+            // ✅ Corrección igual que arriba
+            if (fechaInicio.HasValue)
+            {
+                var inicioUtc = DateTime.SpecifyKind(fechaInicio.Value.Date, DateTimeKind.Utc);
+                query = query.Where(a => a.fecha_accion >= inicioUtc);
+            }
+            if (fechaFin.HasValue)
+            {
+                var finUtc = DateTime.SpecifyKind(fechaFin.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                query = query.Where(a => a.fecha_accion <= finUtc);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(a =>
+                    a.tabla_afectada.Contains(search) ||
+                    a.accion.Contains(search) ||
+                    (a.valor_anterior != null && a.valor_anterior.Contains(search)) ||
+                    (a.valor_nuevo != null && a.valor_nuevo.Contains(search))
+                );
+            }
+
+            var auditorias = await query
+                .OrderByDescending(a => a.fecha_accion)
+                .ToListAsync();
+
+            var userIds = auditorias.Select(a => a.usuarioid).Distinct().ToList();
+            var usuariosInfo = await (
+                from u in _context.usuario
+                join p in _context.persona on u.personaid equals p.personaid
+                where userIds.Contains(u.usuarioid)
+                select new { u.usuarioid, NombreCompleto = p.nombre + " " + p.apellido }
+            ).ToDictionaryAsync(k => k.usuarioid, v => v.NombreCompleto);
+
+            var pdfBytes = CrearPDFAuditoria(auditorias, usuariosInfo, tabla, accion, usuarioId, fechaInicio, fechaFin, search);
+            return File(pdfBytes, "application/pdf", $"Reporte_Auditoria_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+        }
+
+        private byte[] CrearPDFAuditoria(
+     List<auditoria> auditorias,
+     Dictionary<int, string> nombresUsuarios,
+     string? tablaFiltro,
+     string? accionFiltro,
+     int? usuarioIdFiltro,
+     DateTime? fechaInicio,
+     DateTime? fechaFin,
+     string? search)
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            // Función local para formatear el JSON
+            string FormatearJsonPDF(string? json)
+            {
+                if (string.IsNullOrEmpty(json))
+                    return "—";
+
+                try
+                {
+                    var obj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                    if (obj == null || obj.Count == 0)
+                        return "—";
+
+                    var partes = new List<string>();
+                    foreach (var kvp in obj)
+                    {
+                        string valor = kvp.Value?.ToString() ?? "null";
+                        // Truncar valores muy largos para PDF (más agresivo porque el ancho es limitado)
+                        if (valor.Length > 200)
+                            valor = valor.Substring(0, 97) + "...";
+                        partes.Add($"{kvp.Key}: {valor}");
+                    }
+                    string resultado = string.Join(" | ", partes);
+                    // Si el resultado es muy largo, truncar a 100 caracteres (para evitar desborde en PDF)
+                    if (resultado.Length > 200)
+                        resultado = resultado.Substring(0, 97) + "...";
+                    return resultado;
+                }
+                catch
+                {
+                    // Si falla el parseo, mostrar el texto original truncado
+                    return json.Length > 80 ? json.Substring(0, 77) + "…" : json;
+                }
+            }
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(1, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9));
+
+                    page.Header()
+                        .ShowOnce()
+                        .PaddingBottom(10)
+                        .Column(col =>
+                        {
+                            col.Spacing(5);
+                            col.Item().Text("Coco Beach - Reporte de Auditoría")
+                                .FontSize(16).Bold().FontColor("F5A623");
+                            col.Item().Text($"Generado: {DateTime.Now:dd/MM/yyyy HH:mm:ss}")
+                                .FontSize(10).FontColor("666666");
+
+                            var filtrosTexto = new List<string>();
+                            if (!string.IsNullOrEmpty(tablaFiltro)) filtrosTexto.Add($"Tabla: {tablaFiltro}");
+                            if (!string.IsNullOrEmpty(accionFiltro)) filtrosTexto.Add($"Acción: {accionFiltro}");
+                            if (usuarioIdFiltro.HasValue) filtrosTexto.Add($"Usuario ID: {usuarioIdFiltro}");
+                            if (fechaInicio.HasValue) filtrosTexto.Add($"Desde: {fechaInicio.Value:dd/MM/yyyy}");
+                            if (fechaFin.HasValue) filtrosTexto.Add($"Hasta: {fechaFin.Value:dd/MM/yyyy}");
+                            if (!string.IsNullOrEmpty(search)) filtrosTexto.Add($"Búsqueda: {search}");
+
+                            if (filtrosTexto.Any())
+                            {
+                                col.Item().Text($"Filtros: {string.Join(" | ", filtrosTexto)}")
+                                    .FontSize(9).Italic().FontColor("555555");
+                            }
+                        });
+
+                    page.Content().PaddingVertical(10).Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(0.8f);
+                            columns.RelativeColumn(1f);
+                            columns.RelativeColumn(1f);
+                            columns.RelativeColumn(1f);
+                            columns.RelativeColumn(3.5f);  
+                            columns.RelativeColumn(3.5f);  
+                            columns.RelativeColumn(2f);
+                            columns.RelativeColumn(2f);
+                        });
+
+                        table.Header(header =>
+                        {
+                            header.Cell().Background("29B6D2").Padding(4).Text("ID").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Tabla").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Registro ID").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Acción").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Valor Anterior").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Valor Nuevo").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Usuario").Bold().FontColor("FFFFFF");
+                            header.Cell().Background("29B6D2").Padding(4).Text("Fecha Acción").Bold().FontColor("FFFFFF");
+                        });
+
+                        foreach (var a in auditorias)
+                        {
+                            string nombreUsuario = nombresUsuarios.ContainsKey(a.usuarioid)
+                                ? nombresUsuarios[a.usuarioid]
+                                : $"ID:{a.usuarioid}";
+
+                            // Usamos la nueva función de formateo
+                            string valorAnteriorFormateado = FormatearJsonPDF(a.valor_anterior);
+                            string valorNuevoFormateado = FormatearJsonPDF(a.valor_nuevo);
+
+                            table.Cell().Padding(3).Text(a.auditoriaid.ToString());
+                            table.Cell().Padding(3).Text(a.tabla_afectada ?? "");
+                            table.Cell().Padding(3).Text(a.registroid.ToString());
+                            table.Cell().Padding(3).Text(a.accion ?? "");
+                            table.Cell().Padding(3).Text(valorAnteriorFormateado);
+                            table.Cell().Padding(3).Text(valorNuevoFormateado);
+                            table.Cell().Padding(3).Text(nombreUsuario);
+                            table.Cell().Padding(3).Text(a.fecha_accion?.ToString("dd/MM/yyyy HH:mm:ss") ?? "");
+                        }
+                    });
+
+                    page.Footer().PaddingTop(10).AlignCenter().Text(text =>
+                    {
+                        text.Span("Coco Beach - Reporte de auditoría generado automáticamente. ");
+                        text.Span("Página ");
+                        text.CurrentPageNumber();
+                    });
+                });
+            }).GeneratePdf();
+        }
 
     }
 }
