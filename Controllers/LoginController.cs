@@ -2,6 +2,7 @@
 using Coco_Beach.Servicios;
 using Coco_Beach.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
 namespace Coco_Beach.Controllers
 {
@@ -66,8 +67,7 @@ namespace Coco_Beach.Controllers
                 var usuarioInfo = await (from u in _context.usuario
                                          join p in _context.persona on u.personaid equals p.personaid
                                          join r in _context.rol on p.rolid equals r.rolid
-                                         where p.correo == txtUsuario
-                                         && u.password == txtClave
+                                         where p.correo == txtUsuario                                   
                                          && p.estado == true   // <-- Solo usuarios activos pueden ingresar
                                          select new
                                          {
@@ -81,18 +81,33 @@ namespace Coco_Beach.Controllers
 
                 if (usuarioInfo != null)
                 {
-                    // Guardar datos en sesión
-                    HttpContext.Session.SetInt32("usuarioId", usuarioInfo.usuario.usuarioid);
-                    HttpContext.Session.SetInt32("personaId", usuarioInfo.persona.personaid);
-                    HttpContext.Session.SetString("correo", usuarioInfo.persona.correo ?? "");
-                    HttpContext.Session.SetString("nombre", usuarioInfo.persona.nombre ?? "");
-                    HttpContext.Session.SetString("apellido", usuarioInfo.persona.apellido ?? "");
-                    HttpContext.Session.SetString("telefono", usuarioInfo.persona.telefono ?? "");
-                    HttpContext.Session.SetString("tipoUsuario", usuarioInfo.rolNombre ?? "");
-                    HttpContext.Session.SetInt32("rolId", usuarioInfo.rolId);
+                    var passwordHasher = new PasswordHasher<object>();
 
-                    _logger.LogInformation($"Usuario {usuarioInfo.persona.correo} ha iniciado sesión correctamente");
-                    return RedirectToAction("Index", "Login");
+                    var resultado = passwordHasher.VerifyHashedPassword(
+                        null,
+                        usuarioInfo.usuario.password,
+                        txtClave
+                    );
+
+                    if (resultado == PasswordVerificationResult.Success)
+                    {
+                        // LOGIN CORRECTO
+
+                        HttpContext.Session.SetInt32("usuarioId", usuarioInfo.usuario.usuarioid);
+                        HttpContext.Session.SetInt32("personaId", usuarioInfo.persona.personaid);
+                        HttpContext.Session.SetString("correo", usuarioInfo.persona.correo ?? "");
+                        HttpContext.Session.SetString("nombre", usuarioInfo.persona.nombre ?? "");
+                        HttpContext.Session.SetString("apellido", usuarioInfo.persona.apellido ?? "");
+                        HttpContext.Session.SetString("telefono", usuarioInfo.persona.telefono ?? "");
+                        HttpContext.Session.SetString("tipoUsuario", usuarioInfo.rolNombre ?? "");
+                        HttpContext.Session.SetInt32("rolId", usuarioInfo.rolId);
+
+                        _logger.LogInformation(
+                            $"Usuario {usuarioInfo.persona.correo} ha iniciado sesión correctamente"
+                        );
+
+                        return RedirectToAction("Index", "Login");
+                    }
                 }
 
                 // Verificar si el usuario existe pero está desactivado para mensaje específico
