@@ -9,6 +9,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 
 namespace Coco_Beach.Controllers
 {
@@ -182,11 +183,14 @@ namespace Coco_Beach.Controllers
                 // Crear usuario solo si NO es cliente
                 if (!esRolCliente)
                 {
+                    var passwordHasher = new PasswordHasher<object>();
+
                     var usuario = new usuario
                     {
                         personaid = persona.personaid,
-                        password = password // ⚠️ RECUERDA: Encriptar la contraseña
+                        password = passwordHasher.HashPassword(null, password)
                     };
+
                     _context.usuario.Add(usuario);
                     await _context.SaveChangesAsync();
                 }
@@ -336,18 +340,23 @@ namespace Coco_Beach.Controllers
                             var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
                             if (usuarioExistente != null)
                             {
-                                // Actualizar contraseña existente
-                                usuarioExistente.password = password; // ⚠️ Recuerda encriptar
+                                var passwordHasher = new PasswordHasher<object>();
+
+                                usuarioExistente.password =
+                                    passwordHasher.HashPassword(null, password);
+
                                 _context.usuario.Update(usuarioExistente);
                             }
                             else
                             {
-                                // Crear nuevo usuario
+                                var passwordHasher = new PasswordHasher<object>();
+
                                 var nuevoUsuario = new usuario
                                 {
                                     personaid = persona.personaid,
-                                    password = password // ⚠️ Recuerda encriptar
+                                    password = passwordHasher.HashPassword(null, password)
                                 };
+
                                 _context.usuario.Add(nuevoUsuario);
                             }
                             await _context.SaveChangesAsync();
