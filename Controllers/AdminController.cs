@@ -1505,19 +1505,47 @@ namespace Coco_Beach.Controllers
             int mesFiltro = mes ?? hoyUtc.Month;
             int anioFiltro = anio ?? hoyUtc.Year;
 
+
             // Rango del mes (UTC)
-            var inicioMesUtc = new DateTime(anioFiltro, mesFiltro, 1, 0, 0, 0, DateTimeKind.Utc);
-            var finMesUtc = inicioMesUtc.AddMonths(1).AddSeconds(-1);
+            var diaActual = DateTime.Now.Day;
+
+            // Fecha inicio dinámica según mes seleccionado
+            var fechaFin = new DateTime(
+                anioFiltro,
+                mesFiltro,
+                Math.Min(diaActual, DateTime.DaysInMonth(anioFiltro, mesFiltro))
+            );
+
+            // Fecha inicio = 1 mes antes
+            var fechaInicio = fechaFin.AddMonths(-1);
 
             // Rango del día actual (UTC)
-            var inicioHoyUtc = hoyUtc;
+            var inicioHoyUtc = hoyUtc; 
             var finHoyUtc = inicioHoyUtc.AddDays(1).AddTicks(-1);
+
+            var inicioMesUtc = new DateTime(
+                fechaInicio.Year,
+                fechaInicio.Month,
+                fechaInicio.Day,
+                0, 0, 0,
+                DateTimeKind.Utc);
+
+            var finMesUtc = new DateTime(
+             fechaFin.Year,
+             fechaFin.Month,
+             fechaFin.Day,
+             23, 59, 59,
+             DateTimeKind.Utc);
+
+            ViewBag.FechaInicioDashboard = inicioMesUtc;
+            ViewBag.FechaFinDashboard = finMesUtc;
 
             // Obtener IDs de estados
             var estados = await _context.estado.ToListAsync();
             int idDisponible = estados.FirstOrDefault(e => e.nombre == "Disponible")?.estadoid ?? 0;
             int idReservada = estados.FirstOrDefault(e => e.nombre == "Reservado")?.estadoid ?? 0;
             int idEnProceso = estados.FirstOrDefault(e => e.nombre == "En proceso de reserva")?.estadoid ?? 0;
+   
 
             ViewBag.IdReservada = idReservada;
             ViewBag.IdEnProceso = idEnProceso;
@@ -1534,9 +1562,9 @@ namespace Coco_Beach.Controllers
 
             // ===== KPIs del MES (incluyendo TODOS los estados) =====
             var reservasMesQuery = _context.reserva
-                .Where(r => r.fecha_inicio.HasValue &&
-                            r.fecha_inicio.Value >= inicioMesUtc &&
-                            r.fecha_inicio.Value <= finMesUtc);
+            .Where(r => r.fecha_inicio.HasValue &&
+               r.fecha_inicio.Value >= inicioMesUtc &&
+               r.fecha_inicio.Value <= finMesUtc);
             // ❌ Ya no filtramos por estado (antes estaba && r.estadoid != idDisponible)
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
@@ -1547,7 +1575,7 @@ namespace Coco_Beach.Controllers
                                join rec in _context.recurso on res.recursoid equals rec.recursoid
                                where res.fecha_inicio.HasValue &&
                                      res.fecha_inicio.Value >= inicioMesUtc &&
-                                     res.fecha_inicio.Value <= finMesUtc
+                                     res.fecha_inicio.Value < finMesUtc 
                                group res by new { rec.nombre } into grupo
                                select new
                                {
