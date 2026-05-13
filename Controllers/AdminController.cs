@@ -610,12 +610,11 @@ namespace Coco_Beach.Controllers
             // Obtener todas las habitaciones
             var todasLasHabitaciones = await _context.recurso.ToListAsync();
 
-            // Obtener reservas en el rango de fechas, EXCLUYENDO estado "Cancelado" (asumiendo id = 4)
+            // Obtener reservas en el rango de fechas
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_inicio.HasValue &&
                             r.fecha_inicio.Value >= fechaInicioUtc &&
-                            r.fecha_inicio.Value <= fechaFinUtc &&
-                            r.estadoid != 4)   // ← EXCLUIR CANCELADO
+                            r.fecha_inicio.Value <= fechaFinUtc)   
                 .ToListAsync();
 
             // Agrupar por habitación
