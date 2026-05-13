@@ -860,6 +860,8 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Encargado")]
         public async Task<IActionResult> CalendarioHotel()
         {
+            // ✅ Se pasan TODOS los recursos (incluidos los no habilitados),
+            //    para que el JS los muestre bloqueados con estilo especial.
             var recursos = await _context.recurso
                 .Where(r => r.recursoid != 15)
                 .OrderBy(r => r.nombre)
@@ -880,7 +882,7 @@ namespace Coco_Beach.Controllers
                 .OrderBy(r => r.nombre)
                 .ToListAsync();
 
-            return View("CalendarioHotel", recursos); // Reutiliza la misma vista
+            return View("CalendarioHotel", recursos);
         }
 
         // ==============================================
@@ -896,7 +898,8 @@ namespace Coco_Beach.Controllers
 
             IQueryable<reserva> query = _context.reserva
                 .Where(r => r.fecha_inicio.HasValue && r.fecha_fin.HasValue)
-                .Where(r => r.fecha_inicio.Value <= fechaFinUtc && r.fecha_fin.Value >= fechaInicioUtc);
+                .Where(r => r.fecha_inicio.Value <= fechaFinUtc && r.fecha_fin.Value >= fechaInicioUtc)
+                .Where(r => r.estadoid != 4);   // ← EXCLUIR CANCELADAS del calendario
 
             if (tipo == "rancho")
                 query = query.Where(r => r.recursoid == 15);
@@ -911,23 +914,39 @@ namespace Coco_Beach.Controllers
                 .Where(p => clienteIds.Contains(p.personaid))
                 .ToDictionaryAsync(p => p.personaid);
 
-            var resultado = reservas.Select(r => new
+            // ✅ También incluir info de qué recursos están deshabilitados (libre = false)
+            IQueryable<recurso> recursosQuery = _context.recurso;
+            if (tipo == "rancho")
+                recursosQuery = recursosQuery.Where(r => r.recursoid == 15);
+            else
+                recursosQuery = recursosQuery.Where(r => r.recursoid != 15);
+
+            var recursosDeshabilitados = await recursosQuery
+                .Where(r => r.libre == false)
+                .Select(r => r.recursoid)
+                .ToListAsync();
+
+            var resultado = new
             {
-                r.reservaid,
-                r.recursoid,
-                r.estadoid,
-                r.preciofinal,
-                fecha_inicio = r.fecha_inicio,
-                fecha_fin = r.fecha_fin,
-                cliente = clientes.ContainsKey(r.clienteid) ? new
+                reservas = reservas.Select(r => new
                 {
-                    clientes[r.clienteid].personaid,
-                    clientes[r.clienteid].nombre,
-                    clientes[r.clienteid].apellido,
-                    clientes[r.clienteid].correo,
-                    clientes[r.clienteid].telefono
-                } : null
-            });
+                    r.reservaid,
+                    r.recursoid,
+                    r.estadoid,
+                    r.preciofinal,
+                    fecha_inicio = r.fecha_inicio,
+                    fecha_fin = r.fecha_fin,
+                    cliente = clientes.ContainsKey(r.clienteid) ? new
+                    {
+                        clientes[r.clienteid].personaid,
+                        clientes[r.clienteid].nombre,
+                        clientes[r.clienteid].apellido,
+                        clientes[r.clienteid].correo,
+                        clientes[r.clienteid].telefono
+                    } : null
+                }),
+                recursosDeshabilitados
+            };
 
             return Json(resultado);
         }
@@ -1074,9 +1093,15 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> CrearReservaCalendario([FromBody] ReservaCreateDto dto)
         {
-            // Validar que los campos requeridos estén presentes
             if (dto.recursoid <= 0 || dto.clienteid <= 0)
                 return BadRequest(new { error = "Habitación y cliente son requeridos." });
+
+            // ✅ Verificar que el recurso está habilitado
+            var recurso = await _context.recurso.FindAsync(dto.recursoid);
+            if (recurso == null)
+                return NotFound(new { error = "Habitación no encontrada." });
+            if (recurso.libre == false)
+                return BadRequest(new { error = "Esta habitación no está habilitada y no puede recibir reservas." });
 
             var inicioUtc = DateTime.SpecifyKind(dto.fecha_inicio, DateTimeKind.Utc);
             var finUtc = DateTime.SpecifyKind(dto.fecha_fin, DateTimeKind.Utc);
@@ -1084,10 +1109,11 @@ namespace Coco_Beach.Controllers
             if (inicioUtc >= finUtc)
                 return BadRequest(new { error = "La fecha de inicio debe ser anterior a la fecha de fin." });
 
-            // Validar traslape
+            // Validar traslape (excluir canceladas y disponibles)
             var traslape = await _context.reserva
                 .AnyAsync(r => r.recursoid == dto.recursoid
-                            && r.estadoid != 3 // excluir canceladas/disponible
+                            && r.estadoid != 3
+                            && r.estadoid != 4   // ← excluir canceladas
                             && r.fecha_inicio.HasValue && r.fecha_fin.HasValue
                             && r.fecha_inicio.Value < finUtc
                             && r.fecha_fin.Value > inicioUtc);
@@ -1095,7 +1121,6 @@ namespace Coco_Beach.Controllers
             if (traslape)
                 return Conflict(new { error = "Ya existe una reserva en ese rango de fechas para esta habitación." });
 
-            // Obtener el empleado logueado desde la sesión
             int empleadoId = HttpContext.Session.GetInt32("personaId") ?? 0;
             if (empleadoId == 0)
                 return Unauthorized(new { error = "Sesión no válida. Por favor inicia sesión nuevamente." });
@@ -1105,7 +1130,7 @@ namespace Coco_Beach.Controllers
                 clienteid = dto.clienteid,
                 empleadoid = empleadoId,
                 recursoid = dto.recursoid,
-                estadoid = dto.estadoid > 0 ? dto.estadoid : 1, // 1 = Reservado por defecto
+                estadoid = dto.estadoid > 0 ? dto.estadoid : 1,
                 fecha_inicio = inicioUtc,
                 fecha_fin = finUtc,
                 fecha_creacion = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(-6), DateTimeKind.Utc),
@@ -1135,16 +1160,65 @@ namespace Coco_Beach.Controllers
 
         [HttpGet]
         [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
-        public async Task<IActionResult> ExportarICS(int recursoid)
+        public async Task<IActionResult> ExportarReserva(int reservaid)
         {
+            var reserva = await _context.reserva.FindAsync(reservaid);
+            if (reserva == null) return NotFound();
+
+            var recurso = await _context.recurso.FindAsync(reserva.recursoid);
+            var cliente = await _context.persona.FindAsync(reserva.clienteid);
+            var nombreCliente = cliente != null ? $"{cliente.nombre} {cliente.apellido}".Trim() : "Huésped";
+            var nombreRecurso = recurso?.nombre ?? "Habitación";
+
+            var sb = new StringBuilder();
+            sb.AppendLine("BEGIN:VCALENDAR");
+            sb.AppendLine("VERSION:2.0");
+            sb.AppendLine("PRODID:-//CocoBeach//Calendario//ES");
+            sb.AppendLine("CALSCALE:GREGORIAN");
+            sb.AppendLine("METHOD:PUBLISH");
+            sb.AppendLine($"X-WR-CALNAME:CocoBeach - Reserva #{reservaid}");
+            sb.AppendLine("X-WR-TIMEZONE:America/El_Salvador");
+
+            var dtStart = reserva.fecha_inicio!.Value.ToString("yyyyMMdd");
+            var dtEnd = reserva.fecha_fin!.Value.AddDays(1).ToString("yyyyMMdd");
+            var uid = $"reserva-{reserva.reservaid}@cocobeach";
+            var created = (reserva.fecha_creacion ?? DateTime.UtcNow).ToString("yyyyMMdd'T'HHmmss'Z'");
+
+            sb.AppendLine("BEGIN:VEVENT");
+            sb.AppendLine($"UID:{uid}");
+            sb.AppendLine($"DTSTAMP:{created}");
+            sb.AppendLine($"DTSTART;VALUE=DATE:{dtStart}");
+            sb.AppendLine($"DTEND;VALUE=DATE:{dtEnd}");
+            sb.AppendLine($"SUMMARY:{EscapeICS(nombreCliente)} - {EscapeICS(nombreRecurso)}");
+            sb.AppendLine($"DESCRIPTION:Reserva #{reserva.reservaid}. Habitación: {EscapeICS(nombreRecurso)}. Precio: ${reserva.preciofinal:N2}");
+            sb.AppendLine($"LOCATION:{EscapeICS(nombreRecurso)}");
+            sb.AppendLine("END:VEVENT");
+            sb.AppendLine("END:VCALENDAR");
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            return File(bytes, "text/calendar; charset=utf-8", $"{nombreRecurso.Replace(" ", "_")}_Reserva{reservaid}_{ts}.ics");
+        }
+
+        [HttpGet]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
+        public async Task<IActionResult> ExportarICS(int recursoid, DateTime? desde = null, DateTime? hasta = null)
+        {
+            {
+
+            var desdeUtc = desde.HasValue ? DateTime.SpecifyKind(desde.Value, DateTimeKind.Utc) : DateTime.MinValue;
+            var hastaUtc = hasta.HasValue ? DateTime.SpecifyKind(hasta.Value.AddDays(1), DateTimeKind.Utc) : DateTime.MaxValue;
+
             var recurso = await _context.recurso.FindAsync(recursoid);
             if (recurso == null) return NotFound();
 
             var reservas = await _context.reserva
                 .Where(r => r.recursoid == recursoid
-                         && r.estadoid != 3
+                         && r.estadoid != 4
                          && r.fecha_inicio.HasValue
-                         && r.fecha_fin.HasValue)
+                         && r.fecha_fin.HasValue
+                         && r.fecha_inicio.Value >= desdeUtc
+                         && r.fecha_inicio.Value <= hastaUtc)
                 .ToListAsync();
 
             var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
@@ -1166,8 +1240,6 @@ namespace Coco_Beach.Controllers
                 var cliente = clientes.ContainsKey(r.clienteid) ? clientes[r.clienteid] : null;
                 var nombreCliente = cliente != null ? $"{cliente.nombre} {cliente.apellido}".Trim() : "Huésped";
 
-                // Para reservas de todo el día usamos formato DATE (YYYYMMDD)
-                // La fecha de fin en iCal para todo-el-día es EXCLUSIVA (el día siguiente)
                 var dtStart = r.fecha_inicio!.Value.ToString("yyyyMMdd");
                 var dtEnd = r.fecha_fin!.Value.AddDays(1).ToString("yyyyMMdd");
                 var uid = $"reserva-{r.reservaid}@cocobeach";
@@ -1187,7 +1259,9 @@ namespace Coco_Beach.Controllers
             sb.AppendLine("END:VCALENDAR");
 
             var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-            return File(bytes, "text/calendar; charset=utf-8", $"cocobeach-{recurso.nombre?.Replace(" ", "_")}.ics");
+                var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                return File(bytes, "text/calendar; charset=utf-8", $"{recurso.nombre?.Replace(" ", "_")}_{ts}.ics");
+            }
         }
 
         private static string EscapeICS(string value)
@@ -1198,6 +1272,80 @@ namespace Coco_Beach.Controllers
                 .Replace(",", "\\,")
                 .Replace("\n", "\\n")
                 .Replace("\r", "");
+        }
+
+
+        [HttpGet]
+        [Route("Admin/ExportarICSCompleto")]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
+        public async Task<IActionResult> ExportarICSCompleto(string tipo = "hotel", DateTime? desde = null, DateTime? hasta = null)
+        {
+
+            var desdeUtc = desde.HasValue ? DateTime.SpecifyKind(desde.Value, DateTimeKind.Utc) : DateTime.MinValue;
+            var hastaUtc = hasta.HasValue ? DateTime.SpecifyKind(hasta.Value.AddDays(1), DateTimeKind.Utc) : DateTime.MaxValue;
+
+            IQueryable<reserva> query = _context.reserva
+                .Where(r => r.estadoid != 4
+                            && r.fecha_inicio.HasValue
+                            && r.fecha_fin.HasValue
+                            && r.fecha_inicio.Value >= desdeUtc
+                            && r.fecha_inicio.Value <= hastaUtc);
+
+            if (tipo == "rancho")
+                query = query.Where(r => r.recursoid == 15);
+            else
+                query = query.Where(r => r.recursoid != 15);
+
+            var reservas = await query.ToListAsync();
+
+            var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
+            var clientes = await _context.persona
+                .Where(p => clienteIds.Contains(p.personaid))
+                .ToDictionaryAsync(p => p.personaid);
+
+            var recursoIds = reservas.Select(r => r.recursoid).Distinct().ToList();
+            var recursos = await _context.recurso
+                .Where(r => recursoIds.Contains(r.recursoid))
+                .ToDictionaryAsync(r => r.recursoid);
+
+            var sb = new StringBuilder();
+            sb.AppendLine("BEGIN:VCALENDAR");
+            sb.AppendLine("VERSION:2.0");
+            sb.AppendLine("PRODID:-//CocoBeach//Calendario//ES");
+            sb.AppendLine("CALSCALE:GREGORIAN");
+            sb.AppendLine("METHOD:PUBLISH");
+            sb.AppendLine($"X-WR-CALNAME:CocoBeach - {(tipo == "rancho" ? "Rancho" : "Hotel")}");
+            sb.AppendLine("X-WR-TIMEZONE:America/El_Salvador");
+
+            foreach (var r in reservas)
+            {
+                var cliente = clientes.ContainsKey(r.clienteid) ? clientes[r.clienteid] : null;
+                var nombreCliente = cliente != null ? $"{cliente.nombre} {cliente.apellido}".Trim() : "Huésped";
+                var recurso = recursos.ContainsKey(r.recursoid) ? recursos[r.recursoid] : null;
+                var nombreRecurso = recurso?.nombre ?? "Habitación";
+
+                var dtStart = r.fecha_inicio!.Value.ToString("yyyyMMdd");
+                var dtEnd = r.fecha_fin!.Value.AddDays(1).ToString("yyyyMMdd");
+                var uid = $"reserva-{r.reservaid}@cocobeach";
+                var created = (r.fecha_creacion ?? DateTime.UtcNow).ToString("yyyyMMdd'T'HHmmss'Z'");
+
+                sb.AppendLine("BEGIN:VEVENT");
+                sb.AppendLine($"UID:{uid}");
+                sb.AppendLine($"DTSTAMP:{created}");
+                sb.AppendLine($"DTSTART;VALUE=DATE:{dtStart}");
+                sb.AppendLine($"DTEND;VALUE=DATE:{dtEnd}");
+                sb.AppendLine($"SUMMARY:{EscapeICS(nombreCliente)} - {EscapeICS(nombreRecurso)}");
+                sb.AppendLine($"DESCRIPTION:Reserva #{r.reservaid}. Habitación: {EscapeICS(nombreRecurso)}. Precio: ${r.preciofinal:N2}");
+                sb.AppendLine($"LOCATION:{EscapeICS(nombreRecurso)}");
+                sb.AppendLine("END:VEVENT");
+            }
+
+            sb.AppendLine("END:VCALENDAR");
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var nombreArchivo = tipo == "rancho" ? $"CocoBeach-Rancho_{ts}.ics" : $"CocoBeach-Hotel_{ts}.ics";
+            return File(bytes, "text/calendar; charset=utf-8", nombreArchivo);
         }
 
         // ==============================================
@@ -1212,7 +1360,7 @@ namespace Coco_Beach.Controllers
             if (reserva == null)
                 return NotFound(new { error = "Reserva no encontrada." });
 
-            // Estados válidos: 1=Reservado, 2=En proceso de reserva, 3=Disponible
+            // ✅ Ahora se permiten estados 1, 2, 3 (no cancelar desde aquí, usar CancelarReserva)
             var estadosPermitidos = new[] { 1, 2, 3 };
             if (!estadosPermitidos.Contains(dto.estadoid))
                 return BadRequest(new { error = "Estado no válido." });
@@ -1231,6 +1379,54 @@ namespace Coco_Beach.Controllers
         }
 
         // ==============================================
+        // ✅ NUEVO — AJAX: Cancelar reserva con % reembolso
+        // ==============================================
+
+        [HttpPost]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
+        public async Task<IActionResult> CancelarReserva([FromBody] CancelarReservaDto dto)
+        {
+            var reserva = await _context.reserva.FindAsync(dto.reservaid);
+            if (reserva == null)
+                return NotFound(new { error = "Reserva no encontrada." });
+
+            if (reserva.estadoid == 4)
+                return BadRequest(new { error = "Esta reserva ya está cancelada." });
+
+            // Validar porcentaje
+            if (dto.porcentajeReembolso < 0 || dto.porcentajeReembolso > 100)
+                return BadRequest(new { error = "El porcentaje de reembolso debe estar entre 0 y 100." });
+
+            double montoOriginal = reserva.preciofinal ?? 0;
+            double montoReembolso = Math.Round(montoOriginal * dto.porcentajeReembolso / 100.0, 2);
+
+            double nuevoPrecioFinal = montoOriginal - montoReembolso;
+            reserva.preciofinal = nuevoPrecioFinal;
+
+            // Cambiar estado a Cancelado (ID=4)
+            reserva.estadoid = 4;
+            await _context.SaveChangesAsync();
+
+            return Json(new
+            {
+                success = true,
+                reservaid = reserva.reservaid,
+                montoOriginal,
+                porcentajeReembolso = dto.porcentajeReembolso,
+                montoReembolso,
+                nuevoPrecioFinal,
+                mensaje = $"Reserva #{reserva.reservaid} cancelada. Reembolso: ${montoReembolso:N2} ({dto.porcentajeReembolso}%)"
+            });
+        }
+
+        // DTO para CancelarReserva
+        public class CancelarReservaDto
+        {
+            public int reservaid { get; set; }
+            public double porcentajeReembolso { get; set; } = 100;
+        }
+
+        // ==============================================
         // AJAX — Editar reserva desde el calendario
         // ==============================================
 
@@ -1242,8 +1438,16 @@ namespace Coco_Beach.Controllers
             if (reserva == null)
                 return NotFound(new { error = "Reserva no encontrada." });
 
+            if (reserva.estadoid == 4)
+                return BadRequest(new { error = "No se puede editar una reserva cancelada." });
+
             if (dto.recursoid <= 0 || dto.clienteid <= 0)
                 return BadRequest(new { error = "Habitación y cliente son requeridos." });
+
+            // ✅ Verificar que el recurso destino está habilitado
+            var recurso = await _context.recurso.FindAsync(dto.recursoid);
+            if (recurso?.libre == false)
+                return BadRequest(new { error = "La habitación seleccionada no está habilitada." });
 
             var inicioUtc = DateTime.SpecifyKind(dto.fecha_inicio, DateTimeKind.Utc);
             var finUtc = DateTime.SpecifyKind(dto.fecha_fin, DateTimeKind.Utc);
@@ -1251,11 +1455,12 @@ namespace Coco_Beach.Controllers
             if (inicioUtc >= finUtc)
                 return BadRequest(new { error = "La fecha de inicio debe ser anterior a la fecha de fin." });
 
-            // Validar traslape excluyendo la reserva que se está editando
+            // Validar traslape excluyendo la reserva que se está editando y las canceladas
             var traslape = await _context.reserva
-                .AnyAsync(r => r.reservaid != dto.reservaid          // excluir la propia reserva
+                .AnyAsync(r => r.reservaid != dto.reservaid
                             && r.recursoid == dto.recursoid
                             && r.estadoid != 3
+                            && r.estadoid != 4   // ← excluir canceladas
                             && r.fecha_inicio.HasValue && r.fecha_fin.HasValue
                             && r.fecha_inicio.Value < finUtc
                             && r.fecha_fin.Value > inicioUtc);
