@@ -1884,5 +1884,83 @@ namespace Coco_Beach.Controllers
             }).GeneratePdf();
         }
 
+        // ==============================================
+        // RESPALDO DE BASE DE DATOS CON pg_dump
+        // ==============================================
+
+        [AuthorizeRole("Administrador")]
+        [HttpGet]
+        public async Task<IActionResult> DescargarRespaldo()
+        {
+            // ── Ruta a pg_dump (ajusta la versión si es diferente) ──────────────
+            var pgDumpPath = @"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe";
+
+            if (!System.IO.File.Exists(pgDumpPath))
+                return BadRequest("No se encontró pg_dump.exe. Verifica la ruta en el controlador.");
+
+            // ── Cadena de conexión: leer desde appsettings o poner directamente ─
+            // Formato Supabase: Host=db.xxxx.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=TU_PASSWORD
+            var connStr = _context.Database.GetConnectionString();
+
+            // Parsear los valores de la cadena de conexión de EF/Npgsql
+            var builder = new Npgsql.NpgsqlConnectionStringBuilder(connStr);
+
+            string host = builder.Host ?? "";
+            string port = builder.Port.ToString();
+            string database = builder.Database ?? "postgres";
+            string username = builder.Username ?? "postgres";
+            string password = builder.Password ?? "";
+
+            // ── Nombre del archivo de salida ────────────────────────────────────
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"respaldo_{database}_{timestamp}.sql";
+            var tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
+
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = pgDumpPath,
+                    Arguments = $"-h {host} -p {port} -U {username} -d {database} -F p -f \"{tempFile}\"",
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    Environment = { ["PGPASSWORD"] = password }
+                };
+
+                using var proceso = System.Diagnostics.Process.Start(psi)!;
+                string stderr = await proceso.StandardError.ReadToEndAsync();
+                await proceso.WaitForExitAsync();
+
+                if (proceso.ExitCode != 0)
+                    return BadRequest($"pg_dump falló: {stderr}");
+
+                // ── Agregar DROP/CREATE SCHEMA al inicio del archivo ────────────────
+                var encabezado = new System.Text.StringBuilder();
+                encabezado.AppendLine("-- ============================================");
+                encabezado.AppendLine("-- RESTAURACIÓN LIMPIA: elimina y recrea schema");
+                encabezado.AppendLine("-- ============================================");
+                encabezado.AppendLine("DROP SCHEMA public CASCADE;");
+                encabezado.AppendLine("CREATE SCHEMA public;");
+                encabezado.AppendLine("-- ============================================");
+                encabezado.AppendLine();
+
+                var contenidoDump = await System.IO.File.ReadAllTextAsync(tempFile);
+                var contenidoFinal = encabezado.ToString() + contenidoDump;
+                var bytes = System.Text.Encoding.UTF8.GetBytes(contenidoFinal);
+
+                System.IO.File.Delete(tempFile); // limpiar temporal
+
+                return File(bytes, "application/octet-stream", fileName);
+            }
+            catch (Exception ex)
+            {
+                if (System.IO.File.Exists(tempFile))
+                    System.IO.File.Delete(tempFile);
+
+                return BadRequest($"Error al generar el respaldo: {ex.Message}");
+            }
+        }
+
     }
 }
