@@ -13,6 +13,43 @@
         </div>
     </div>
 
+    <div class="cb-card shadow-sm border-0" style="border-radius: 20px; background: white;">
+        <div class="p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="m-0 fw-bold" style="color: #1e293b;">Disponibilidad de este día</h4>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge d-flex align-items-center gap-2" style="background:#fee2e2; color:#dc2626; border: 1px solid #fca5a5; padding: 8px 15px; border-radius: 10px;">
+                        <span style="width: 8px; height: 8px; background: #dc2626; border-radius: 50%;"></span> Reservada
+                    </span>
+                    <span class="badge d-flex align-items-center gap-2" style="background:#fef3c7; color:#d97706; border: 1px solid #fcd34d; padding: 8px 15px; border-radius: 10px;">
+                        <span style="width: 8px; height: 8px; background: #d97706; border-radius: 50%;"></span> En proceso
+                    </span>
+                    <span class="badge d-flex align-items-center gap-2" style="background:#dcfce7; color:#16a34a; border: 1px solid #86efac; padding: 8px 15px; border-radius: 10px;">
+                        <span style="width: 8px; height: 8px; background: #16a34a; border-radius: 50%;"></span> Disponible
+                    </span>
+                </div>
+            </div>
+
+            <div class="cinema-grid">
+                @foreach (var hab in ViewBag.ListaHabitaciones)
+                {
+                    string clase = hab.EstadoIdActual == ViewBag.IdReservada ? "cine-reservada" :
+                    (hab.EstadoIdActual == ViewBag.IdEnProceso ? "cine-proceso" : "cine-disponible");
+
+                    // También aquí agregamos el emoji si el nombre empieza con "Rancho"
+                    string nombreHab = hab.Nombre.ToString();
+                    bool esRanchoGrid = nombreHab.StartsWith("Rancho", StringComparison.OrdinalIgnoreCase);
+                    string nombreConEmojiGrid = esRanchoGrid ? "🏡 " + nombreHab : nombreHab;
+
+                    <div class="cine-item @clase">
+                        <span class="cine-name">@nombreConEmojiGrid</span>
+                        <div class="cine-bar"></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold m-0" style="color: #1e293b;">Resumen de Rendimiento</h4>
 
@@ -114,42 +151,7 @@
         </div>
     </div>
 
-    <div class="cb-card shadow-sm border-0" style="border-radius: 20px; background: white;">
-        <div class="p-4">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="m-0 fw-bold" style="color: #1e293b;">Disponibilidad de este día</h4>
-                <div class="d-flex gap-2 flex-wrap">
-                    <span class="badge d-flex align-items-center gap-2" style="background:#fee2e2; color:#dc2626; border: 1px solid #fca5a5; padding: 8px 15px; border-radius: 10px;">
-                        <span style="width: 8px; height: 8px; background: #dc2626; border-radius: 50%;"></span> Reservada
-                    </span>
-                    <span class="badge d-flex align-items-center gap-2" style="background:#fef3c7; color:#d97706; border: 1px solid #fcd34d; padding: 8px 15px; border-radius: 10px;">
-                        <span style="width: 8px; height: 8px; background: #d97706; border-radius: 50%;"></span> En proceso
-                    </span>
-                    <span class="badge d-flex align-items-center gap-2" style="background:#dcfce7; color:#16a34a; border: 1px solid #86efac; padding: 8px 15px; border-radius: 10px;">
-                        <span style="width: 8px; height: 8px; background: #16a34a; border-radius: 50%;"></span> Disponible
-                    </span>
-                </div>
-            </div>
-
-            <div class="cinema-grid">
-                @foreach (var hab in ViewBag.ListaHabitaciones)
-                {
-                    string clase = hab.EstadoIdActual == ViewBag.IdReservada ? "cine-reservada" :
-                    (hab.EstadoIdActual == ViewBag.IdEnProceso ? "cine-proceso" : "cine-disponible");
-
-                    // También aquí agregamos el emoji si el nombre empieza con "Rancho"
-                    string nombreHab = hab.Nombre.ToString();
-                    bool esRanchoGrid = nombreHab.StartsWith("Rancho", StringComparison.OrdinalIgnoreCase);
-                    string nombreConEmojiGrid = esRanchoGrid ? "🏡 " + nombreHab : nombreHab;
-
-                    <div class="cine-item @clase">
-                        <span class="cine-name">@nombreConEmojiGrid</span>
-                        <div class="cine-bar"></div>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
+   
 </div>
 
 <style>

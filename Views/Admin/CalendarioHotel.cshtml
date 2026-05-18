@@ -7,7 +7,6 @@
     var gradienteHeader = esRancho
         ? "linear-gradient(135deg, #2ECC9A 0%, #1A8C6E 100%)"
         : "linear-gradient(135deg, #29B6D2 0%, #1A6FA8 100%)";
-    var iconoHeader = esRancho ? "bi-tree-fill" : "bi-building";
 
     ViewData["Title"] = titulo;
     Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
@@ -20,7 +19,18 @@
     <!-- HEADER -->
     <div class="cb-page-header" style="background: @gradienteHeader; margin-bottom: 0; border-radius: 0;">
         <div class="d-flex align-items-center gap-3">
-            <i class="bi @iconoHeader cb-page-header-icon"></i>
+            @if (esRancho)
+            {
+                <img src="~/images/logo4 rancho.png"
+                     alt="Rancho"
+                     style="height: 100px; width: auto; object-fit: contain; filter: brightness(0) invert(1); flex-shrink: 0; margin: -26px 0;" />
+            }
+            else
+            {
+                <img src="~/images/logo1 cocobeach texto completo.png"
+                     alt="CocoBeach"
+                     style="height: 100px; width: auto; object-fit: contain; filter: brightness(0) invert(1); flex-shrink: 0; margin: -24px 0;" />
+            }
             <div>
                 <h2 class="mb-0">@titulo</h2>
                 <p class="mb-0 d-none d-sm-block">@subtitulo</p>

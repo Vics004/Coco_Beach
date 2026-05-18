@@ -130,9 +130,8 @@
                 background: linear-gradient(90deg, var(--cb-primary), var(--cb-accent), var(--cb-primary));
             }
 
-        /* Logo / Brand */
         .cb-brand {
-            padding: 28px 20px 24px;
+            padding: 10px 10px 5px; /* ← reducido de 28px 20px 24px */
         }
 
         .cb-brand-title {
@@ -668,19 +667,17 @@
     <!-- SIDEBAR -->
     <div class="cb-sidebar" id="cbSidebar">
         <div class="cb-brand">
-            <div class="cb-brand-title">
-                <div class="brand-icon">🌴</div>
-                CocoBeach
-            </div>
-            <div class="cb-brand-sub">Panel de Administración</div>
+            <img src="~/images/logo2 grupo morales texto completo.png"
+                 alt="CocoBeach"
+                 style="width: 140px; height: auto; filter: brightness(0) invert(1); display: block; margin: 0 auto 6px" />
+            <div class="cb-brand-sub" style="padding-left: 0; text-align: center;">Panel de Administración</div>
         </div>
-        <div class="cb-user-info">
 
+        <div class="cb-user-info" style="padding: 8px 12px 12px;">
             <div class="cb-user-data">
                 <div class="cb-user-name">
                     @nombreUsuario @apellidoUsuario
                 </div>
-
             </div>
         </div>
 
