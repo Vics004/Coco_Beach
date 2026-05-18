@@ -933,6 +933,7 @@ namespace Coco_Beach.Controllers
                     r.recursoid,
                     r.estadoid,
                     r.preciofinal,
+                    r.comentario,
                     fecha_inicio = r.fecha_inicio,
                     fecha_fin = r.fecha_fin,
                     cliente = clientes.ContainsKey(r.clienteid) ? new
@@ -1133,7 +1134,8 @@ namespace Coco_Beach.Controllers
                 fecha_inicio = inicioUtc,
                 fecha_fin = finUtc,
                 fecha_creacion = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(-6), DateTimeKind.Utc),
-                preciofinal = dto.preciofinal
+                preciofinal = dto.preciofinal,
+                comentario = string.IsNullOrWhiteSpace(dto.comentario) ? null : dto.comentario.Trim()
             };
 
             _context.reserva.Add(nuevaReserva);
@@ -1151,6 +1153,54 @@ namespace Coco_Beach.Controllers
             public DateTime fecha_inicio { get; set; }
             public DateTime fecha_fin { get; set; }
             public double? preciofinal { get; set; }
+            public string? comentario { get; set; }
+        }
+
+        [HttpGet]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
+        public async Task<IActionResult> ListaReservas(string tipo = "hotel")
+        {
+            var query = _context.reserva.AsQueryable();
+
+            if (tipo == "rancho")
+                query = query.Where(r => r.recursoid == 15);
+            else
+                query = query.Where(r => r.recursoid != 15);
+
+            var reservas = await query
+                .OrderByDescending(r => r.fecha_creacion)
+                .ToListAsync();
+
+            var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
+            var empleadoIds = reservas.Where(r => r.empleadoid > 0).Select(r => r.empleadoid).Distinct().ToList();
+            var recursoIds = reservas.Select(r => r.recursoid).Distinct().ToList();
+            var estadoIds = reservas.Select(r => r.estadoid).Distinct().ToList();
+
+            var clientes = await _context.persona.Where(p => clienteIds.Contains(p.personaid)).ToDictionaryAsync(p => p.personaid);
+            var empleados = await _context.persona.Where(p => empleadoIds.Contains(p.personaid)).ToDictionaryAsync(p => p.personaid);
+            var recursos = await _context.recurso.Where(r => recursoIds.Contains(r.recursoid)).ToDictionaryAsync(r => r.recursoid);
+            var estados = await _context.estado.Where(e => estadoIds.Contains(e.estadoid)).ToDictionaryAsync(e => e.estadoid);
+
+            var filas = reservas.Select(r => new
+            {
+                r.reservaid,
+                r.comentario,
+                cliente = clientes.ContainsKey(r.clienteid) ? $"{clientes[r.clienteid].nombre} {clientes[r.clienteid].apellido}".Trim() : $"ID {r.clienteid}",
+                empleado = r.empleadoid > 0 && empleados.ContainsKey(r.empleadoid)
+            ? $"{empleados[r.empleadoid].nombre} {empleados[r.empleadoid].apellido}".Trim()
+            : "—",
+                habitacion = recursos.ContainsKey(r.recursoid) ? recursos[r.recursoid].nombre : $"ID {r.recursoid}",
+                estado = estados.ContainsKey(r.estadoid) ? estados[r.estadoid].nombre : $"ID {r.estadoid}",
+                r.estadoid,
+                fecha_inicio = r.fecha_inicio.HasValue ? r.fecha_inicio.Value.ToString("dd/MM/yyyy HH:mm") : "—",
+                fecha_fin = r.fecha_fin.HasValue ? r.fecha_fin.Value.ToString("dd/MM/yyyy HH:mm") : "—",
+                fecha_creacion = r.fecha_creacion.HasValue ? r.fecha_creacion.Value.ToString("dd/MM/yyyy HH:mm") : "—",
+                preciofinal = r.preciofinal.HasValue ? $"${r.preciofinal.Value:N2}" : "—"
+            }).ToList();
+
+            ViewBag.Tipo = tipo;
+            ViewBag.FilasJson = System.Text.Json.JsonSerializer.Serialize(filas);
+            return View();
         }
 
         // ==============================================
@@ -1473,6 +1523,7 @@ namespace Coco_Beach.Controllers
             reserva.fecha_inicio = inicioUtc;
             reserva.fecha_fin = finUtc;
             reserva.preciofinal = dto.preciofinal;
+            reserva.comentario = string.IsNullOrWhiteSpace(dto.comentario) ? null : dto.comentario.Trim();
 
             await _context.SaveChangesAsync();
 
@@ -1489,6 +1540,7 @@ namespace Coco_Beach.Controllers
             public DateTime fecha_inicio { get; set; }
             public DateTime fecha_fin { get; set; }
             public double? preciofinal { get; set; }
+            public string? comentario { get; set; }
         }
 
 
