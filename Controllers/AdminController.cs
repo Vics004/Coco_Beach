@@ -214,7 +214,7 @@ namespace Coco_Beach.Controllers
             if (id == null) return NotFound();
 
             var persona = await _context.persona.FindAsync(id);
-            if (persona == null )
+            if (persona == null)
                 return NotFound();
 
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
@@ -289,12 +289,12 @@ namespace Coco_Beach.Controllers
                 var usuarioExistente = await _context.usuario.FirstOrDefaultAsync(u => u.personaid == id);
 
                 // Solo requerimos contraseña si NO existe un usuario previo
-                if(string.IsNullOrEmpty(password))
+                if (string.IsNullOrEmpty(password))
                 {
                     ModelState.Remove("password");
 
                 }
-                else if(usuarioExistente == null && string.IsNullOrWhiteSpace(password))
+                else if (usuarioExistente == null && string.IsNullOrWhiteSpace(password))
                 {
                     ModelState.AddModelError("password", "La contraseña es obligatoria para este rol.");
                 }
@@ -614,7 +614,7 @@ namespace Coco_Beach.Controllers
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_inicio.HasValue &&
                             r.fecha_inicio.Value >= fechaInicioUtc &&
-                            r.fecha_inicio.Value <= fechaFinUtc)   
+                            r.fecha_inicio.Value <= fechaFinUtc)
                 .ToListAsync();
 
             // Agrupar por habitación
@@ -780,7 +780,7 @@ namespace Coco_Beach.Controllers
                                 });
                             });
 
-                        
+
 
                         // Título tabla detallada
                         col.Item().PaddingBottom(8)
@@ -1205,59 +1205,59 @@ namespace Coco_Beach.Controllers
         {
             {
 
-            var desdeUtc = desde.HasValue ? DateTime.SpecifyKind(desde.Value, DateTimeKind.Utc) : DateTime.MinValue;
-            var hastaUtc = hasta.HasValue ? DateTime.SpecifyKind(hasta.Value.AddDays(1), DateTimeKind.Utc) : DateTime.MaxValue;
+                var desdeUtc = desde.HasValue ? DateTime.SpecifyKind(desde.Value, DateTimeKind.Utc) : DateTime.MinValue;
+                var hastaUtc = hasta.HasValue ? DateTime.SpecifyKind(hasta.Value.AddDays(1), DateTimeKind.Utc) : DateTime.MaxValue;
 
-            var recurso = await _context.recurso.FindAsync(recursoid);
-            if (recurso == null) return NotFound();
+                var recurso = await _context.recurso.FindAsync(recursoid);
+                if (recurso == null) return NotFound();
 
-            var reservas = await _context.reserva
-                .Where(r => r.recursoid == recursoid
-                         && r.estadoid != 4
-                         && r.fecha_inicio.HasValue
-                         && r.fecha_fin.HasValue
-                         && r.fecha_inicio.Value >= desdeUtc
-                         && r.fecha_inicio.Value <= hastaUtc)
-                .ToListAsync();
+                var reservas = await _context.reserva
+                    .Where(r => r.recursoid == recursoid
+                             && r.estadoid != 4
+                             && r.fecha_inicio.HasValue
+                             && r.fecha_fin.HasValue
+                             && r.fecha_inicio.Value >= desdeUtc
+                             && r.fecha_inicio.Value <= hastaUtc)
+                    .ToListAsync();
 
-            var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
-            var clientes = await _context.persona
-                .Where(p => clienteIds.Contains(p.personaid))
-                .ToDictionaryAsync(p => p.personaid);
+                var clienteIds = reservas.Select(r => r.clienteid).Distinct().ToList();
+                var clientes = await _context.persona
+                    .Where(p => clienteIds.Contains(p.personaid))
+                    .ToDictionaryAsync(p => p.personaid);
 
-            var sb = new StringBuilder();
-            sb.AppendLine("BEGIN:VCALENDAR");
-            sb.AppendLine("VERSION:2.0");
-            sb.AppendLine("PRODID:-//CocoBeach//Calendario//ES");
-            sb.AppendLine("CALSCALE:GREGORIAN");
-            sb.AppendLine("METHOD:PUBLISH");
-            sb.AppendLine($"X-WR-CALNAME:CocoBeach - {recurso.nombre}");
-            sb.AppendLine("X-WR-TIMEZONE:America/El_Salvador");
+                var sb = new StringBuilder();
+                sb.AppendLine("BEGIN:VCALENDAR");
+                sb.AppendLine("VERSION:2.0");
+                sb.AppendLine("PRODID:-//CocoBeach//Calendario//ES");
+                sb.AppendLine("CALSCALE:GREGORIAN");
+                sb.AppendLine("METHOD:PUBLISH");
+                sb.AppendLine($"X-WR-CALNAME:CocoBeach - {recurso.nombre}");
+                sb.AppendLine("X-WR-TIMEZONE:America/El_Salvador");
 
-            foreach (var r in reservas)
-            {
-                var cliente = clientes.ContainsKey(r.clienteid) ? clientes[r.clienteid] : null;
-                var nombreCliente = cliente != null ? $"{cliente.nombre} {cliente.apellido}".Trim() : "Huésped";
+                foreach (var r in reservas)
+                {
+                    var cliente = clientes.ContainsKey(r.clienteid) ? clientes[r.clienteid] : null;
+                    var nombreCliente = cliente != null ? $"{cliente.nombre} {cliente.apellido}".Trim() : "Huésped";
 
-                var dtStart = r.fecha_inicio!.Value.ToString("yyyyMMdd");
-                var dtEnd = r.fecha_fin!.Value.AddDays(1).ToString("yyyyMMdd");
-                var uid = $"reserva-{r.reservaid}@cocobeach";
-                var created = (r.fecha_creacion ?? DateTime.UtcNow).ToString("yyyyMMdd'T'HHmmss'Z'");
+                    var dtStart = r.fecha_inicio!.Value.ToString("yyyyMMdd");
+                    var dtEnd = r.fecha_fin!.Value.AddDays(1).ToString("yyyyMMdd");
+                    var uid = $"reserva-{r.reservaid}@cocobeach";
+                    var created = (r.fecha_creacion ?? DateTime.UtcNow).ToString("yyyyMMdd'T'HHmmss'Z'");
 
-                sb.AppendLine("BEGIN:VEVENT");
-                sb.AppendLine($"UID:{uid}");
-                sb.AppendLine($"DTSTAMP:{created}");
-                sb.AppendLine($"DTSTART;VALUE=DATE:{dtStart}");
-                sb.AppendLine($"DTEND;VALUE=DATE:{dtEnd}");
-                sb.AppendLine($"SUMMARY:{EscapeICS(nombreCliente)} - {EscapeICS(recurso.nombre ?? "")}");
-                sb.AppendLine($"DESCRIPTION:Reserva #{r.reservaid}. Estado: {r.estadoid}. Precio: ${r.preciofinal:N2}");
-                sb.AppendLine($"LOCATION:{EscapeICS(recurso.nombre ?? "CocoBeach")}");
-                sb.AppendLine("END:VEVENT");
-            }
+                    sb.AppendLine("BEGIN:VEVENT");
+                    sb.AppendLine($"UID:{uid}");
+                    sb.AppendLine($"DTSTAMP:{created}");
+                    sb.AppendLine($"DTSTART;VALUE=DATE:{dtStart}");
+                    sb.AppendLine($"DTEND;VALUE=DATE:{dtEnd}");
+                    sb.AppendLine($"SUMMARY:{EscapeICS(nombreCliente)} - {EscapeICS(recurso.nombre ?? "")}");
+                    sb.AppendLine($"DESCRIPTION:Reserva #{r.reservaid}. Estado: {r.estadoid}. Precio: ${r.preciofinal:N2}");
+                    sb.AppendLine($"LOCATION:{EscapeICS(recurso.nombre ?? "CocoBeach")}");
+                    sb.AppendLine("END:VEVENT");
+                }
 
-            sb.AppendLine("END:VCALENDAR");
+                sb.AppendLine("END:VCALENDAR");
 
-            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+                var bytes = Encoding.UTF8.GetBytes(sb.ToString());
                 var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 return File(bytes, "text/calendar; charset=utf-8", $"{recurso.nombre?.Replace(" ", "_")}_{ts}.ics");
             }
@@ -1520,7 +1520,7 @@ namespace Coco_Beach.Controllers
             var fechaInicio = fechaFin.AddMonths(-1);
 
             // Rango del día actual (UTC)
-            var inicioHoyUtc = hoyUtc; 
+            var inicioHoyUtc = hoyUtc;
             var finHoyUtc = inicioHoyUtc.AddDays(1).AddTicks(-1);
 
             var inicioMesUtc = new DateTime(
@@ -1545,7 +1545,7 @@ namespace Coco_Beach.Controllers
             int idDisponible = estados.FirstOrDefault(e => e.nombre == "Disponible")?.estadoid ?? 0;
             int idReservada = estados.FirstOrDefault(e => e.nombre == "Reservado")?.estadoid ?? 0;
             int idEnProceso = estados.FirstOrDefault(e => e.nombre == "En proceso de reserva")?.estadoid ?? 0;
-   
+
 
             ViewBag.IdReservada = idReservada;
             ViewBag.IdEnProceso = idEnProceso;
@@ -1575,7 +1575,7 @@ namespace Coco_Beach.Controllers
                                join rec in _context.recurso on res.recursoid equals rec.recursoid
                                where res.fecha_inicio.HasValue &&
                                      res.fecha_inicio.Value >= inicioMesUtc &&
-                                     res.fecha_inicio.Value < finMesUtc 
+                                     res.fecha_inicio.Value < finMesUtc
                                group res by new { rec.nombre } into grupo
                                select new
                                {
@@ -1835,8 +1835,8 @@ namespace Coco_Beach.Controllers
                             columns.RelativeColumn(1f);
                             columns.RelativeColumn(1f);
                             columns.RelativeColumn(1f);
-                            columns.RelativeColumn(3.5f);  
-                            columns.RelativeColumn(3.5f);  
+                            columns.RelativeColumn(3.5f);
+                            columns.RelativeColumn(3.5f);
                             columns.RelativeColumn(2f);
                             columns.RelativeColumn(2f);
                         });
@@ -1884,5 +1884,253 @@ namespace Coco_Beach.Controllers
             }).GeneratePdf();
         }
 
+        // ==============================================
+        // RESPALDO DE BASE DE DATOS CON pg_dump
+        // ==============================================
+
+        [AuthorizeRole("Administrador")]
+        [HttpGet]
+        public async Task<IActionResult> DescargarRespaldo()
+        {
+            try
+            {
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var fileName = $"respaldo_cocobeach_{timestamp}.sql";
+                var sb = new System.Text.StringBuilder();
+
+                // ── Encabezado ───────────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine($"-- Respaldo Coco Beach generado: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine();
+                sb.AppendLine("DROP SCHEMA public CASCADE;");
+                sb.AppendLine("CREATE SCHEMA public;");
+                sb.AppendLine();
+
+                // ── Deshabilitar FK para evitar errores de orden ──────────────
+                sb.AppendLine("-- Deshabilitar validación de FK durante la restauración");
+                sb.AppendLine("SET session_replication_role = 'replica';");
+                sb.AppendLine();
+
+                // ── Creación de tablas ────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- CREACIÓN DE TABLAS");
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE rol (");
+                sb.AppendLine("    rolid   SERIAL PRIMARY KEY,");
+                sb.AppendLine("    nombre  VARCHAR(50) NOT NULL");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE persona (");
+                sb.AppendLine("    personaid   SERIAL PRIMARY KEY,");
+                sb.AppendLine("    nombre      VARCHAR(50) NOT NULL,");
+                sb.AppendLine("    apellido    VARCHAR(50) NOT NULL,");
+                sb.AppendLine("    correo      VARCHAR(50) UNIQUE NOT NULL,");
+                sb.AppendLine("    rolid       INTEGER REFERENCES rol(rolid),");
+                sb.AppendLine("    estado      BOOLEAN,");
+                sb.AppendLine("    telefono    VARCHAR(50)");  // ← corregido de VARCHAR(9)
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE usuario (");
+                sb.AppendLine("    usuarioid   SERIAL PRIMARY KEY,");
+                sb.AppendLine("    password    VARCHAR(255) NOT NULL,");
+                sb.AppendLine("    personaid   INTEGER UNIQUE NOT NULL REFERENCES persona(personaid)");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE estado (");
+                sb.AppendLine("    estadoid  SERIAL PRIMARY KEY,");
+                sb.AppendLine("    nombre    VARCHAR(50) NOT NULL UNIQUE");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE recurso (");
+                sb.AppendLine("    recursoid    SERIAL PRIMARY KEY,");
+                sb.AppendLine("    nombre       VARCHAR(50) NOT NULL,");
+                sb.AppendLine("    libre        BOOLEAN DEFAULT true,");
+                sb.AppendLine("    descripcion  VARCHAR(50),");
+                sb.AppendLine("    capacidad    INTEGER,");
+                sb.AppendLine("    precio       DOUBLE PRECISION");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE reserva (");
+                sb.AppendLine("    reservaid       SERIAL PRIMARY KEY,");
+                sb.AppendLine("    clienteid       INTEGER NOT NULL REFERENCES persona(personaid),");
+                sb.AppendLine("    empleadoid      INTEGER NOT NULL REFERENCES usuario(usuarioid),");
+                sb.AppendLine("    recursoid       INTEGER NOT NULL REFERENCES recurso(recursoid),");
+                sb.AppendLine("    estadoid        INTEGER NOT NULL REFERENCES estado(estadoid),");
+                sb.AppendLine("    fecha_inicio    TIMESTAMP NOT NULL,");
+                sb.AppendLine("    fecha_fin       TIMESTAMP NOT NULL,");
+                sb.AppendLine("    fecha_creacion  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,");
+                sb.AppendLine("    preciofinal     DOUBLE PRECISION,");
+                sb.AppendLine("    CONSTRAINT check_fechas CHECK (fecha_fin > fecha_inicio)");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE check_in (");
+                sb.AppendLine("    check_lnid      SERIAL PRIMARY KEY,");
+                sb.AppendLine("    reservaid       INTEGER NOT NULL UNIQUE REFERENCES reserva(reservaid),");
+                sb.AppendLine("    empleadoid      INTEGER NOT NULL REFERENCES usuario(usuarioid),");
+                sb.AppendLine("    fecha_ingreso   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,");
+                sb.AppendLine("    fecha_salida    TIMESTAMP,");
+                sb.AppendLine("    CONSTRAINT check_fechas_checkin CHECK (fecha_salida IS NULL OR fecha_salida > fecha_ingreso)");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                sb.AppendLine("CREATE TABLE auditoria (");
+                sb.AppendLine("    auditoriaid      SERIAL PRIMARY KEY,");
+                sb.AppendLine("    tabla_afectada   VARCHAR(100) NOT NULL,");
+                sb.AppendLine("    registroid       INTEGER NOT NULL,");
+                sb.AppendLine("    accion           VARCHAR(20) NOT NULL,");
+                sb.AppendLine("    valor_anterior   JSONB,");
+                sb.AppendLine("    valor_nuevo      JSONB,");
+                sb.AppendLine("    usuarioid        INTEGER NOT NULL REFERENCES usuario(usuarioid),");
+                sb.AppendLine("    fecha_accion     TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+                sb.AppendLine(");");
+                sb.AppendLine();
+
+                // ── Datos: rol ───────────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: rol");
+                sb.AppendLine("-- =====================================================");
+                var roles = await _context.rol.ToListAsync();
+                foreach (var r in roles)
+                    sb.AppendLine($"INSERT INTO rol (rolid, nombre) VALUES ({r.rolid}, {Sql(r.nombre)});");
+                sb.AppendLine();
+
+                // ── Datos: persona ───────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: persona");
+                sb.AppendLine("-- =====================================================");
+                var personas = await _context.persona.ToListAsync();
+                foreach (var p in personas)
+                    sb.AppendLine($"INSERT INTO persona (personaid, nombre, apellido, correo, telefono, rolid, estado) " +
+                        $"VALUES ({p.personaid}, {Sql(p.nombre)}, {Sql(p.apellido)}, {Sql(p.correo)}, " +
+                        $"{Sql(p.telefono)}, {SqlInt(p.rolid)}, {p.estado.ToString().ToLower()});");
+                sb.AppendLine();
+
+                // ── Datos: usuario ───────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: usuario");
+                sb.AppendLine("-- =====================================================");
+                var usuarios = await _context.usuario.ToListAsync();
+                foreach (var u in usuarios)
+                    sb.AppendLine($"INSERT INTO usuario (usuarioid, password, personaid) " +
+                        $"VALUES ({u.usuarioid}, {Sql(u.password)}, {u.personaid});");
+                sb.AppendLine();
+
+                // ── Datos: estado ────────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: estado");
+                sb.AppendLine("-- =====================================================");
+                var estados = await _context.estado.ToListAsync();
+                foreach (var e in estados)
+                    sb.AppendLine($"INSERT INTO estado (estadoid, nombre) VALUES ({e.estadoid}, {Sql(e.nombre)});");
+                sb.AppendLine();
+
+                // ── Datos: recurso ───────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: recurso");
+                sb.AppendLine("-- =====================================================");
+                var recursos = await _context.recurso.ToListAsync();
+                foreach (var r in recursos)
+                    sb.AppendLine($"INSERT INTO recurso (recursoid, nombre, libre, descripcion, capacidad, precio) " +
+                        $"VALUES ({r.recursoid}, {Sql(r.nombre)}, {SqlBool(r.libre)}, " +
+                        $"{Sql(r.descripcion)}, {SqlInt(r.capacidad)}, {SqlDouble(r.precio)});");
+                sb.AppendLine();
+
+                // ── Datos: reserva ───────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: reserva");
+                sb.AppendLine("-- =====================================================");
+                var reservas = await _context.reserva.ToListAsync();
+                foreach (var r in reservas)
+                    sb.AppendLine($"INSERT INTO reserva (reservaid, clienteid, empleadoid, recursoid, estadoid, fecha_inicio, fecha_fin, fecha_creacion, preciofinal) " +
+                        $"VALUES ({r.reservaid}, {r.clienteid}, {SqlInt(r.empleadoid)}, {r.recursoid}, {r.estadoid}, " +
+                        $"{SqlDate(r.fecha_inicio)}, {SqlDate(r.fecha_fin)}, {SqlDate(r.fecha_creacion)}, {SqlDouble(r.preciofinal)});");
+                sb.AppendLine();
+
+                // ── Datos: check_in ──────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: check_in");
+                sb.AppendLine("-- =====================================================");
+                var checkIns = await _context.check_in.ToListAsync();
+                foreach (var c in checkIns)
+                    sb.AppendLine($"INSERT INTO check_in (check_lnid, reservaid, empleadoid, fecha_ingreso, fecha_salida) " +
+                        $"VALUES ({c.check_lnid}, {c.reservaid}, {c.empleadoid}, " +
+                        $"{SqlDate(c.fecha_ingreso)}, {SqlDate(c.fecha_salida)});");
+                sb.AppendLine();
+
+                // ── Datos: auditoria ─────────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- DATOS: auditoria");
+                sb.AppendLine("-- =====================================================");
+                var auditorias = await _context.auditoria.ToListAsync();
+                foreach (var a in auditorias)
+                    sb.AppendLine($"INSERT INTO auditoria (auditoriaid, tabla_afectada, registroid, accion, valor_anterior, valor_nuevo, usuarioid, fecha_accion) " +
+                        $"VALUES ({a.auditoriaid}, {Sql(a.tabla_afectada)}, {a.registroid}, {Sql(a.accion)}, " +
+                        $"{Sql(a.valor_anterior)}, {Sql(a.valor_nuevo)}, {a.usuarioid}, {SqlDate(a.fecha_accion)});");
+                sb.AppendLine();
+
+                // ── Reactivar FK ─────────────────────────────────────────────
+                sb.AppendLine("-- Reactivar validación de FK");
+                sb.AppendLine("SET session_replication_role = 'origin';");
+                sb.AppendLine();
+
+                // ── Ajuste de secuencias ──────────────────────────────────────
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- AJUSTE DE SECUENCIAS");
+                sb.AppendLine("-- =====================================================");
+                if (roles.Any())
+                    sb.AppendLine($"SELECT setval('rol_rolid_seq', {roles.Max(r => r.rolid)}, true);");
+                if (personas.Any())
+                    sb.AppendLine($"SELECT setval('persona_personaid_seq', {personas.Max(p => p.personaid)}, true);");
+                if (usuarios.Any())
+                    sb.AppendLine($"SELECT setval('usuario_usuarioid_seq', {usuarios.Max(u => u.usuarioid)}, true);");
+                if (estados.Any())
+                    sb.AppendLine($"SELECT setval('estado_estadoid_seq', {estados.Max(e => e.estadoid)}, true);");
+                if (recursos.Any())
+                    sb.AppendLine($"SELECT setval('recurso_recursoid_seq', {recursos.Max(r => r.recursoid)}, true);");
+                if (reservas.Any())
+                    sb.AppendLine($"SELECT setval('reserva_reservaid_seq', {reservas.Max(r => r.reservaid)}, true);");
+                if (checkIns.Any())
+                    sb.AppendLine($"SELECT setval('check_in_check_lnid_seq', {checkIns.Max(c => c.check_lnid)}, true);");
+                if (auditorias.Any())
+                    sb.AppendLine($"SELECT setval('auditoria_auditoriaid_seq', {auditorias.Max(a => a.auditoriaid)}, true);");
+                sb.AppendLine();
+
+                sb.AppendLine("-- =====================================================");
+                sb.AppendLine("-- FIN DEL RESPALDO");
+                sb.AppendLine("-- =====================================================");
+
+                var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+                return File(bytes, "application/octet-stream", fileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Error al generar el respaldo: {ex.Message}");
+            }
+        }
+
+        // ── Helpers para escapar valores SQL ────────────────────────────────────
+        private static string Sql(string? val) =>
+            val == null ? "NULL" : "'" + val.Replace("'", "''") + "'";
+
+        private static string SqlInt(int? val) =>
+            val == null ? "NULL" : val.ToString()!;
+
+        private static string SqlDouble(double? val) =>
+            val == null ? "NULL" : val.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        private static string SqlBool(bool? val) =>
+            val == null ? "NULL" : val.Value ? "true" : "false";
+
+        private static string SqlDate(DateTime? val) =>
+            val == null ? "NULL" : $"'{val.Value:yyyy-MM-dd HH:mm:ss}'";
     }
 }
