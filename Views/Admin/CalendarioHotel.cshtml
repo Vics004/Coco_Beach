@@ -40,6 +40,9 @@
             <a href="#" class="cb-btn cb-btn-volver d-none d-md-flex" onclick="exportarICS()" title="Exportar calendario .ics">
                 <i class="bi bi-download"></i> <span class="d-none d-lg-inline">Exportar</span> .ics
             </a>
+            <a href="/Admin/ListaReservas?tipo=@tipoCalendario" class="cb-btn cb-btn-volver d-none d-md-flex" title="Ver todas las reservas en tabla">
+                <i class="bi bi-table"></i> <span class="d-none d-lg-inline">Ver lista</span>
+            </a>
             <button class="cb-btn" id="btnAgregarReserva"
                     style="background:rgba(255,255,255,0.22); color:#fff; border:1.5px solid rgba(255,255,255,0.45); font-weight:700;">
                 <i class="bi bi-plus-lg"></i> <span class="d-none d-sm-inline">Agregar reserva</span>
@@ -167,6 +170,10 @@
         <div class="pop-row">
             <i class="bi bi-tag-fill"></i>
             <span id="popEstadoBadge" class="cb-badge" style="font-size:10px;"></span>
+        </div>
+        <div class="pop-row" id="popRowComentario" style="display:none; align-items:flex-start; gap:6px;">
+            <i class="bi bi-chat-left-text-fill" style="margin-top:2px; flex-shrink:0;"></i>
+            <span id="popComentario" style="font-size:12px; color:var(--cb-text-muted); font-style:italic; word-break:break-word;"></span>
         </div>
     </div>
 
@@ -436,6 +443,14 @@
 
                 </div>
 
+                <!-- Comentario -->
+                <div class="col-12">
+                    <label class="cb-label">Comentario <span style="color:var(--cb-text-muted);font-weight:400;">(opcional)</span></label>
+                    <textarea class="cb-form-control" id="modalComentario" rows="2"
+                              placeholder="Ej: cliente solicita cama extra, llegada tardía, etc."
+                              style="resize:vertical; min-height:60px;"></textarea>
+                </div>
+
                 <!-- Alerta de error -->
                 <div class="cb-alert cb-alert-danger mt-3" id="alertaError" style="display:none;"></div>
             </div>
@@ -645,6 +660,14 @@
 
                 </div>
 
+                <!-- Comentario -->
+                <div class="col-12">
+                    <label class="cb-label">Comentario <span style="color:var(--cb-text-muted);font-weight:400;">(opcional)</span></label>
+                    <textarea class="cb-form-control" id="editComentario" rows="2"
+                              placeholder="Ej: cliente solicita cama extra, llegada tardía, etc."
+                              style="resize:vertical; min-height:60px;"></textarea>
+                </div>
+
                 <!-- Alerta de error -->
                 <div class="cb-alert cb-alert-danger mt-3" id="editAlertaError" style="display:none;"></div>
             </div>
@@ -720,8 +743,8 @@
 
 <style>
     /* =========================================
-           VARIABLES CALENDARIO
-        ========================================= */
+               VARIABLES CALENDARIO
+            ========================================= */
     :root {
         --cal-reservado: #29B6D2;
         --cal-proceso: #F5A623;
@@ -734,8 +757,8 @@
     }
 
     /* =========================================
-           BARRA DE NAVEGACIÓN
-        ========================================= */
+               BARRA DE NAVEGACIÓN
+            ========================================= */
     .cal-nav-bar {
         display: flex;
         align-items: center;
@@ -812,28 +835,25 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-mes-label
+        .cal-mes-label {
+            font-size: 18px;
+            min-width: 180px;
+            text-align: center;
+        }
 
-    {
-        font-size: 18px;
-        min-width: 180px;
-        text-align: center;
-    }
+        .cal-nav-bar {
+            padding: 14px 28px;
+            gap: 16px;
+        }
 
-    .cal-nav-bar {
-        padding: 14px 28px;
-        gap: 16px;
-    }
+        .cal-nav-left {
+            gap: 8px;
+        }
 
-    .cal-nav-left {
-        gap: 8px;
-    }
-
-    .cal-nav-btn-today {
-        padding: 0 14px;
-        font-size: 13px;
-    }
-
+        .cal-nav-btn-today {
+            padding: 0 14px;
+            font-size: 13px;
+        }
     }
 
     .cal-nav-right {
@@ -869,28 +889,22 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-search-input
+        .cal-search-input {
+            width: 200px;
+            font-size: 13px;
+            padding: 8px 16px 8px 36px;
+        }
 
-    {
-        width: 200px;
-        font-size: 13px;
-        padding: 8px 16px 8px 36px;
-    }
-
-    .cal-search-icon {
-        left: 12px;
-        font-size: 14px;
-    }
-
+        .cal-search-icon {
+            left: 12px;
+            font-size: 14px;
+        }
     }
 
     @@media (min-width: 992px) {
-        .cal-search-input
-
-    {
-        width: 220px;
-    }
-
+        .cal-search-input {
+            width: 220px;
+        }
     }
 
     .cal-search-input:focus {
@@ -901,8 +915,8 @@
     }
 
     /* =========================================
-           LEYENDA
-        ========================================= */
+               LEYENDA
+            ========================================= */
     .cal-leyenda {
         display: flex;
         gap: 10px;
@@ -914,14 +928,11 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-leyenda
-
-    {
-        gap: 20px;
-        padding: 8px 28px;
-        flex-wrap: nowrap;
-    }
-
+        .cal-leyenda {
+            gap: 20px;
+            padding: 8px 28px;
+            flex-wrap: nowrap;
+        }
     }
 
     .leyenda-item {
@@ -935,13 +946,10 @@
     }
 
     @@media (min-width: 576px) {
-        .leyenda-item
-
-    {
-        font-size: 12px;
-        gap: 6px;
-    }
-
+        .leyenda-item {
+            font-size: 12px;
+            gap: 6px;
+        }
     }
 
     .leyenda-dot {
@@ -953,8 +961,8 @@
     }
 
     /* =========================================
-           WRAPPER PRINCIPAL
-        ========================================= */
+               WRAPPER PRINCIPAL
+            ========================================= */
     .cal-wrapper {
         display: flex;
         height: calc(100vh - 240px);
@@ -964,18 +972,15 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-wrapper
-
-    {
-        height: calc(100vh - 230px);
-        min-height: 400px;
-    }
-
+        .cal-wrapper {
+            height: calc(100vh - 230px);
+            min-height: 400px;
+        }
     }
 
     /* =========================================
-           COLUMNA DE RECURSOS
-        ========================================= */
+               COLUMNA DE RECURSOS
+            ========================================= */
     .cal-resources-col {
         width: 140px;
         flex-shrink: 0;
@@ -990,21 +995,15 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-resources-col
-
-    {
-        width: 180px;
-    }
-
+        .cal-resources-col {
+            width: 180px;
+        }
     }
 
     @@media (min-width: 992px) {
-        .cal-resources-col
-
-    {
-        width: var(--cal-resource-w);
-    }
-
+        .cal-resources-col {
+            width: var(--cal-resource-w);
+        }
     }
 
     .cal-resources-col::-webkit-scrollbar {
@@ -1030,13 +1029,10 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-resources-header
-
-    {
-        padding: 0 20px;
-        font-size: 11px;
-    }
-
+        .cal-resources-header {
+            padding: 0 20px;
+            font-size: 11px;
+        }
     }
 
     .cal-resource-row {
@@ -1051,12 +1047,9 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-resource-row
-
-    {
-        padding: 0 20px;
-    }
-
+        .cal-resource-row {
+            padding: 0 20px;
+        }
     }
 
     .cal-resource-row:hover {
@@ -1090,12 +1083,9 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-resource-name
-
-    {
-        font-size: 13px;
-    }
-
+        .cal-resource-name {
+            font-size: 13px;
+        }
     }
 
     .cal-resource-meta {
@@ -1108,13 +1098,10 @@
     }
 
     @@media (min-width: 576px) {
-        .cal-resource-meta
-
-    {
-        gap: 10px;
-        font-size: 11px;
-    }
-
+        .cal-resource-meta {
+            gap: 10px;
+            font-size: 11px;
+        }
     }
 
     .cal-resource-meta i {
@@ -1122,8 +1109,8 @@
     }
 
     /* =========================================
-           ZONA DE TIMELINE
-        ========================================= */
+               ZONA DE TIMELINE
+            ========================================= */
     .cal-timeline-wrap {
         flex: 1;
         overflow-x: auto;
@@ -1305,21 +1292,22 @@
     }
 
     @@media (max-width: 768px) {
-    .cell-add-btn {
-        display: none; /* en móvil no se usa, el click va directo a la celda */
-    }
+        .cell-add-btn {
+            display: none; /* en móvil no se usa, el click va directo a la celda */
+        }
 
-    .cal-grid-cell:not(.cell-bloqueada):not(.cell-pasado):not(.cell-no-habilitada):active {
-        background: rgba(41, 182, 210, 0.15);
+        .cal-grid-cell:not(.cell-bloqueada):not(.cell-pasado):not(.cell-no-habilitada):active {
+            background: rgba(41, 182, 210, 0.15);
+        }
+
+        .btn-ics-recurso {
+            opacity: 1;
+        }
     }
-    .btn-ics-recurso {
-        opacity: 1;
-    }
-}
 
     /* =========================================
-           PÍLDORAS DE RESERVA
-        ========================================= */
+               PÍLDORAS DE RESERVA
+            ========================================= */
     .cal-pill {
         position: absolute;
         top: 50%;
@@ -1384,8 +1372,8 @@
     }
 
     /* =========================================
-           POPOVER
-        ========================================= */
+               POPOVER
+            ========================================= */
     .cal-popover {
         position: fixed;
         z-index: 9999;
@@ -1467,8 +1455,8 @@
     }
 
     /* =========================================
-           MODAL
-        ========================================= */
+               MODAL
+            ========================================= */
     .cb-modal-content {
         border-radius: 16px;
         border: none;
@@ -1489,8 +1477,8 @@
         }
 
     /* =========================================
-           BUSCADOR DE CLIENTE
-        ========================================= */
+               BUSCADOR DE CLIENTE
+            ========================================= */
     .cliente-search-wrap {
         position: relative;
     }
@@ -1584,8 +1572,8 @@
         }
 
     /* =========================================
-           CREAR CLIENTE CARD
-        ========================================= */
+               CREAR CLIENTE CARD
+            ========================================= */
     .crear-cliente-card {
         background: #F8FDFF;
         border: 1.5px solid var(--cb-primary);
@@ -1631,8 +1619,8 @@
     }
 
     /* =========================================
-           INDICADOR DE HOY
-        ========================================= */
+               INDICADOR DE HOY
+            ========================================= */
     .cal-today-line {
         position: absolute;
         top: 0;
@@ -1669,8 +1657,8 @@
         }
 
     /* =========================================
-           BOTONES DE ESTADO EN POPOVER
-        ========================================= */
+               BOTONES DE ESTADO EN POPOVER
+            ========================================= */
     .pop-estado-acciones {
         padding: 10px 16px 12px;
         border-top: 1px solid var(--cb-border);
@@ -1765,8 +1753,8 @@
     }
 
     /* =========================================
-           INFO DE PRECIO EN MODAL
-        ========================================= */
+               INFO DE PRECIO EN MODAL
+            ========================================= */
     .modal-precio-info {
         margin-top: 6px;
         font-size: 12px;
@@ -1785,8 +1773,8 @@
         }
 
     /* =========================================
-           ✅ MINI CALCULADORA
-        ========================================= */
+               ✅ MINI CALCULADORA
+            ========================================= */
     .precio-calc-wrap {
         display: flex;
         align-items: center;
@@ -1900,32 +1888,30 @@
         }
 
     /* =========================================
-           OPCIÓN OCUPADA EN SELECT
-        ========================================= */
+               OPCIÓN OCUPADA EN SELECT
+            ========================================= */
     option.opt-bloqueada,
     option:disabled {
         color: #999;
     }
 
     /* =========================================
-           RESPONSIVE: modal en móvil ocupa todo el ancho
-        ========================================= */
+               RESPONSIVE: modal en móvil ocupa todo el ancho
+            ========================================= */
     @@media (max-width: 575px) {
-        .modal-dialog
+        .modal-dialog {
+            margin: 8px;
+        }
 
-    {
-        margin: 8px;
-    }
+        .modal-body {
+            padding: 16px !important;
+        }
 
-    .modal-body {
-        padding: 16px !important;
-    }
-
-    .modal-footer {
-        padding: 12px 16px !important;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
+        .modal-footer {
+            padding: 12px 16px !important;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
 
         .mini-calc-panel {
             position: absolute;
@@ -1936,7 +1922,6 @@
             top: calc(100% + 4px);
             bottom: auto;
         }
-
     }
 
     .ics-rango-btn {
@@ -1988,8 +1973,8 @@
     const TIPO_CAL = '@tipoCalendario';
     // ✅ Ahora incluimos la propiedad 'libre' para saber si está habilitada
     const RECURSOS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad, libre = r.libre ?? true })
-        ));
+                                Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad, libre = r.libre ?? true })
+                ));
 
     // IDs de recursos deshabilitados (se completa desde el servidor al cargar)
     let recursosDeshabilitadosIds = new Set(RECURSOS.filter(r => !r.libre).map(r => r.recursoid));
@@ -2301,8 +2286,8 @@
             }
 
             reservasFiltradas = todasLasReservas;
+            renderCalendario();
             renderPildoras(todasLasReservas);
-            aplicarDisponibilidadEnGrid();
         } catch (e) {
             console.error('Error cargando reservas:', e);
         }
@@ -2421,6 +2406,15 @@
         const fb = document.getElementById('popEstadoFeedback');
         fb.style.display = 'none';
         fb.textContent = '';
+
+        const popComentario = document.getElementById('popComentario');
+        const popRowComentario = document.getElementById('popRowComentario');
+        if (r.comentario) {
+            if(popComentario) popComentario.textContent = r.comentario;
+            if(popRowComentario) popRowComentario.style.display = 'flex';
+        } else {
+            if(popRowComentario) popRowComentario.style.display = 'none';
+        }
 
             document.getElementById('popLinkExportar').href = '#';
             document.getElementById('popLinkExportar').onclick = (e) => {
@@ -2616,16 +2610,13 @@
                     body: JSON.stringify({ reservaid: reservaidACancelar, porcentajeReembolso: porcentaje })
                 });
 
-                if (resp.ok) {
+               if (resp.ok) {
                     const data = await resp.json();
                     bootstrap.Modal.getInstance(document.getElementById('modalCancelarReserva')).hide();
                     // Cerrar también el popover y modal editar si estuvieran abiertos
                     document.getElementById('calPopover').style.display = 'none';
                     const modalEditar = bootstrap.Modal.getInstance(document.getElementById('modalEditarReserva'));
                     if (modalEditar) modalEditar.hide();
-                        todasLasReservas = todasLasReservas.filter(r => r.reservaid !== reservaidACancelar);
-                        renderPildoras(todasLasReservas);
-                        aplicarDisponibilidadEnGrid();
                         await cargarReservas();
                         mostrarToastExito(data.mensaje ?? 'Reserva cancelada exitosamente.');
                 } else {
@@ -2854,6 +2845,8 @@
 
         calcularPrecio();
         limpiarClienteSeleccionado();
+        const comentarioInput = document.getElementById('modalComentario');
+        if(comentarioInput) comentarioInput.value = '';
         const alerta = document.getElementById('alertaError');
         if(alerta) alerta.style.display = 'none';
         const btnGuardar = document.getElementById('btnGuardarReserva');
@@ -2935,7 +2928,8 @@
                 estadoid: parseInt(document.getElementById('modalEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin:    `${fechaFin}T${horaSalida}:00`,
-                preciofinal: parseFloat(document.getElementById('modalPrecio')?.value) || null
+                preciofinal: parseFloat(document.getElementById('modalPrecio')?.value) || null,
+                comentario: document.getElementById('modalComentario')?.value.trim() || null
             };
 
             const btn = document.getElementById('btnGuardarReserva');
@@ -3244,6 +3238,9 @@
             editLimpiarClienteSeleccionado();
         }
 
+        const editComentarioInput = document.getElementById('editComentario');
+        if(editComentarioInput) editComentarioInput.value = r.comentario ?? '';
+
         const alertaEdit = document.getElementById('editAlertaError');
         if(alertaEdit) alertaEdit.style.display = 'none';
         const btnGuardarEdit = document.getElementById('btnGuardarEdicion');
@@ -3334,7 +3331,8 @@
                 estadoid: parseInt(document.getElementById('editEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin: `${fechaFin}T${horaSalida}:00`,
-                preciofinal: parseFloat(document.getElementById('editPrecio')?.value) || null
+                preciofinal: parseFloat(document.getElementById('editPrecio')?.value) || null,
+                comentario: document.getElementById('editComentario')?.value.trim() || null
             };
 
             const btn = document.getElementById('btnGuardarEdicion');
@@ -3611,6 +3609,30 @@
     function actualizarBaseMiniCalc(baseId, valor) {
         const baseEl = document.getElementById(baseId);
         if (baseEl) baseEl.textContent = `$${Number(valor).toFixed(2)}`;
+    }
+
+    // =========================================
+    // FILTRO POR HABITACIÓN
+    // =========================================
+    let recursoFiltrado = null;
+
+    function aplicarFiltroHabitacion() {
+        document.querySelectorAll('.cal-grid-row').forEach(row => {
+            const rid = parseInt(row.dataset.recursoid);
+            row.style.display = (!recursoFiltrado || rid === recursoFiltrado) ? '' : 'none';
+        });
+        document.querySelectorAll('#colRecursos .cal-resource-row').forEach(row => {
+            const rid = parseInt(row.dataset.recursoid);
+            row.style.display = (!recursoFiltrado || rid === recursoFiltrado) ? '' : 'none';
+        });
+    }
+
+    const filtroHabitacion = document.getElementById('filtroHabitacion');
+    if (filtroHabitacion) {
+        filtroHabitacion.addEventListener('change', () => {
+            recursoFiltrado = filtroHabitacion.value ? parseInt(filtroHabitacion.value) : null;
+            aplicarFiltroHabitacion();
+        });
     }
 
     // =========================================
