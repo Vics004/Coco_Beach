@@ -1983,7 +1983,7 @@ namespace Coco_Beach.Controllers
                 sb.AppendLine("    correo      VARCHAR(50) UNIQUE NOT NULL,");
                 sb.AppendLine("    rolid       INTEGER REFERENCES rol(rolid),");
                 sb.AppendLine("    estado      BOOLEAN,");
-                sb.AppendLine("    telefono    VARCHAR(50)");  // ← corregido de VARCHAR(9)
+                sb.AppendLine("    telefono    VARCHAR(50)");  
                 sb.AppendLine(");");
                 sb.AppendLine();
 
@@ -2020,17 +2020,8 @@ namespace Coco_Beach.Controllers
                 sb.AppendLine("    fecha_fin       TIMESTAMP NOT NULL,");
                 sb.AppendLine("    fecha_creacion  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,");
                 sb.AppendLine("    preciofinal     DOUBLE PRECISION,");
+                sb.AppendLine("    comentario      VARCHAR(255),");
                 sb.AppendLine("    CONSTRAINT check_fechas CHECK (fecha_fin > fecha_inicio)");
-                sb.AppendLine(");");
-                sb.AppendLine();
-
-                sb.AppendLine("CREATE TABLE check_in (");
-                sb.AppendLine("    check_lnid      SERIAL PRIMARY KEY,");
-                sb.AppendLine("    reservaid       INTEGER NOT NULL UNIQUE REFERENCES reserva(reservaid),");
-                sb.AppendLine("    empleadoid      INTEGER NOT NULL REFERENCES usuario(usuarioid),");
-                sb.AppendLine("    fecha_ingreso   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,");
-                sb.AppendLine("    fecha_salida    TIMESTAMP,");
-                sb.AppendLine("    CONSTRAINT check_fechas_checkin CHECK (fecha_salida IS NULL OR fecha_salida > fecha_ingreso)");
                 sb.AppendLine(");");
                 sb.AppendLine();
 
@@ -2102,20 +2093,9 @@ namespace Coco_Beach.Controllers
                 sb.AppendLine("-- =====================================================");
                 var reservas = await _context.reserva.ToListAsync();
                 foreach (var r in reservas)
-                    sb.AppendLine($"INSERT INTO reserva (reservaid, clienteid, empleadoid, recursoid, estadoid, fecha_inicio, fecha_fin, fecha_creacion, preciofinal) " +
+                    sb.AppendLine($"INSERT INTO reserva (reservaid, clienteid, empleadoid, recursoid, estadoid, fecha_inicio, fecha_fin, fecha_creacion, preciofinal, comentario) " +
                         $"VALUES ({r.reservaid}, {r.clienteid}, {SqlInt(r.empleadoid)}, {r.recursoid}, {r.estadoid}, " +
-                        $"{SqlDate(r.fecha_inicio)}, {SqlDate(r.fecha_fin)}, {SqlDate(r.fecha_creacion)}, {SqlDouble(r.preciofinal)});");
-                sb.AppendLine();
-
-                // ── Datos: check_in ──────────────────────────────────────────
-                sb.AppendLine("-- =====================================================");
-                sb.AppendLine("-- DATOS: check_in");
-                sb.AppendLine("-- =====================================================");
-                var checkIns = await _context.check_in.ToListAsync();
-                foreach (var c in checkIns)
-                    sb.AppendLine($"INSERT INTO check_in (check_lnid, reservaid, empleadoid, fecha_ingreso, fecha_salida) " +
-                        $"VALUES ({c.check_lnid}, {c.reservaid}, {c.empleadoid}, " +
-                        $"{SqlDate(c.fecha_ingreso)}, {SqlDate(c.fecha_salida)});");
+                        $"{SqlDate(r.fecha_inicio)}, {SqlDate(r.fecha_fin)}, {SqlDate(r.fecha_creacion)}, {SqlDouble(r.preciofinal)}, {Sql(r.comentario)});");
                 sb.AppendLine();
 
                 // ── Datos: auditoria ─────────────────────────────────────────
@@ -2150,8 +2130,6 @@ namespace Coco_Beach.Controllers
                     sb.AppendLine($"SELECT setval('recurso_recursoid_seq', {recursos.Max(r => r.recursoid)}, true);");
                 if (reservas.Any())
                     sb.AppendLine($"SELECT setval('reserva_reservaid_seq', {reservas.Max(r => r.reservaid)}, true);");
-                if (checkIns.Any())
-                    sb.AppendLine($"SELECT setval('check_in_check_lnid_seq', {checkIns.Max(c => c.check_lnid)}, true);");
                 if (auditorias.Any())
                     sb.AppendLine($"SELECT setval('auditoria_auditoriaid_seq', {auditorias.Max(a => a.auditoriaid)}, true);");
                 sb.AppendLine();
