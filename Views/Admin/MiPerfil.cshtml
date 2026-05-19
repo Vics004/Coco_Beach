@@ -1,0 +1,292 @@
+﻿@model Coco_Beach.Models.persona
+
+@{
+    ViewData["Title"] = "Mi Perfil";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Cliente.cshtml";
+}
+
+<div class="container-fluid">
+
+    <!-- Cabecera -->
+    <div class="cb-page-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-person-circle cb-page-header-icon"></i>
+
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Consulta tu información y actualiza tu contraseña</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjeta -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+
+            <form asp-action="MiPerfil" method="post">
+
+                <input type="hidden" name="id" value="@Model.personaid" />
+
+                <div asp-validation-summary="ModelOnly"
+                     class="cb-alert cb-alert-danger mb-4">
+                </div>
+
+                <div class="row g-4">
+
+                    <!-- Nombre -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Nombre</label>
+
+                        <div class="cb-input-icon">
+                            <i class="bi bi-person"></i>
+
+                            <input value="@Model.nombre"
+                                   class="cb-form-control"
+                                   readonly />
+                        </div>
+                    </div>
+
+                    <!-- Apellido -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Apellido</label>
+
+                        <div class="cb-input-icon">
+                            <i class="bi bi-person-vcard"></i>
+
+                            <input value="@Model.apellido"
+                                   class="cb-form-control"
+                                   readonly />
+                        </div>
+                    </div>
+
+                    <!-- Correo -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Correo</label>
+
+                        <div class="cb-input-icon">
+                            <i class="bi bi-envelope"></i>
+
+                            <input value="@Model.correo"
+                                   class="cb-form-control"
+                                   readonly />
+                        </div>
+                    </div>
+
+                    <!-- Teléfono -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Teléfono</label>
+
+                        <div class="cb-input-icon">
+                            <i class="bi bi-telephone"></i>
+
+                            <input value="@(Model.telefono?.Replace("|", " "))"
+                                   class="cb-form-control"
+                                   readonly />
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="col-md-6">
+                        <label class="cb-label">Nueva contraseña</label>
+
+                        <div class="cb-input-icon password-wrapper">
+
+                            <i class="bi bi-lock"></i>
+
+                            <input type="password"
+                                   id="password"
+                                   name="password"
+                                   class="cb-form-control"
+                                   placeholder="Ingresa una nueva contraseña" />
+
+                            <button type="button"
+                                    class="cb-password-toggle"
+                                    id="togglePassword">
+                                <i class="bi bi-eye"></i>
+                            </button>
+
+                        </div>
+
+                        <span class="text-danger"
+                              style="font-size:12px;">
+                            @Html.ValidationMessage("password")
+                        </span>
+
+                        <small class="cb-text-muted">
+                            La contraseña debe tener al menos 8 caracteres.
+                        </small>
+                    </div>
+
+                </div>
+
+                <hr style="border-color: var(--cb-border); margin: 28px 0;">
+
+                <div class="d-flex gap-3 flex-wrap">
+
+                    <button type="submit"
+                            class="cb-btn cb-btn-primary">
+
+                        <i class="bi bi-check-lg"></i>
+                        Actualizar contraseña
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<style>
+
+    /* Inputs readonly */
+    .cb-form-control[readonly] {
+        background: rgba(255,255,255,0.03);
+        opacity: 0.9;
+        cursor: not-allowed;
+    }
+
+    /* Input con icono */
+    .cb-input-icon {
+        position: relative;
+    }
+
+        .cb-input-icon i:first-child {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--cb-text-secondary);
+            font-size: 0.95rem;
+            z-index: 2;
+        }
+
+        .cb-input-icon .cb-form-control {
+            padding-left: 42px;
+        }
+
+    .password-wrapper {
+        position: relative;
+    }
+
+        .password-wrapper .cb-form-control {
+            padding-right: 48px;
+        }
+
+    .cb-password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 14px;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--cb-text-secondary);
+        cursor: pointer;
+        z-index: 10;
+    }
+
+        .cb-password-toggle i {
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+    /* Chrome, Edge, Safari */
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear,
+    input[type="password"]::-webkit-credentials-auto-fill-button {
+        display: none !important;
+    }
+
+    /* Edge moderno */
+    input[type="password"]::-webkit-textfield-decoration-container {
+        display: none !important;
+    }
+
+    input[type="password"] {
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    /* Texto secundario */
+    .cb-text-muted {
+        display: block;
+        margin-top: 6px;
+        color: var(--cb-text-secondary);
+        font-size: 12px;
+    }
+
+    /* Header */
+    .cb-page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding: 24px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--cb-primary), var(--cb-primary-dark));
+        color: white;
+    }
+
+        .cb-page-header h2 {
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .cb-page-header p {
+            margin: 4px 0 0;
+            opacity: 0.9;
+        }
+
+    .cb-page-header-icon {
+        font-size: 2rem;
+        margin-right: 16px;
+    }
+
+    /* Card */
+    .cb-card {
+        background: var(--cb-surface);
+        border-radius: 16px;
+        border: 1px solid var(--cb-border);
+        overflow: hidden;
+    }
+
+    .cb-card-body {
+        padding: 28px;
+    }
+
+</style>
+
+@section Scripts {
+
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+
+        // Mostrar / ocultar contraseña
+        const togglePassword = document.getElementById("togglePassword");
+        const passwordInput = document.getElementById("password");
+
+        togglePassword.addEventListener("click", function () {
+
+            const type =
+                passwordInput.getAttribute("type") === "password"
+                    ? "text"
+                    : "password";
+
+            passwordInput.setAttribute("type", type);
+
+            this.innerHTML =
+                type === "password"
+                    ? '<i class="bi bi-eye"></i>'
+                    : '<i class="bi bi-eye-slash"></i>';
+        });
+
+    </script>
+}
