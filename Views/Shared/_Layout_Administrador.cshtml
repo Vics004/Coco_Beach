@@ -1,6 +1,7 @@
 ﻿@{
     var nombreUsuario = Context.Session.GetString("nombre");
     var apellidoUsuario = Context.Session.GetString("apellido");
+    var idpersona = Context.Session.GetInt32("personaId");
 }
 
 <!DOCTYPE html>
@@ -32,80 +33,107 @@
         <div class="cb-brand">
             <img src="~/images/logo2 grupo morales texto completo.png"
                  alt="CocoBeach"
+                 class="cb-brand-logo-full"
                  style="width: 140px; height: auto; filter: brightness(0) invert(1); display: block; margin: 0 auto 6px" />
-            <div class="cb-brand-sub" style="padding-left: 0; text-align: center;">Panel de Administración</div>
+            <img src="~/images/logo2 grupo morales texto completo.png"
+                 alt="CocoBeach"
+                 class="cb-brand-logo-mini"
+                 style="width: 36px; height: 36px; filter: brightness(0) invert(1); display: none; margin: 0 auto; object-fit: contain;" />
         </div>
 
-        <div class="cb-user-info" style="padding: 8px 12px 12px;">
+        <!-- ÁREA DE USUARIO CON BOTÓN DE PERFIL -->
+        <div class="cb-user-info" id="cbUserInfo">
             <div class="cb-user-data">
-                <div class="cb-user-name">
+                <div class="cb-user-name cb-text-hide">
                     @nombreUsuario @apellidoUsuario
                 </div>
+                <div class="cb-user-sub cb-text-hide">Panel de Administración</div>
             </div>
+            <!-- Botón de opciones de perfil -->
+            <button class="cb-profile-btn" id="btnPerfil" aria-label="Opciones Adicionales" title="Opciones de perfil">
+                <i class="bi bi-gear"></i>
+            </button>
+
         </div>
 
+        <!-- BOTÓN COLAPSAR (solo desktop) -->
+        <button class="cb-collapse-btn" id="btnCollapse" title="Colapsar menú">
+            <i class="bi bi-chevron-double-left" id="collapseIcon"></i>
+        </button>
+
         <div class="cb-nav">
-            <div class="cb-nav-label">Principal</div>
+            <div class="cb-nav-label cb-text-hide">Principal</div>
 
-            <a asp-controller="Admin" asp-action="Dashboard" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="Dashboard" class="cb-menu-item" title="Dashboard">
                 <i class="bi bi-grid-fill"></i>
-                Dashboard
+                <span class="cb-menu-text">Dashboard</span>
             </a>
 
-            <div class="cb-nav-label">Gestión</div>
 
-            <a asp-controller="Admin" asp-action="UsuarioIndex" class="cb-menu-item">
+            <div class="cb-nav-label cb-text-hide">Gestión</div>
+
+            <a asp-controller="Admin" asp-action="UsuarioIndex" class="cb-menu-item" title="Usuarios">
                 <i class="bi bi-people-fill"></i>
-                Usuarios
+                <span class="cb-menu-text">Usuarios</span>
             </a>
 
-            <a asp-controller="Admin" asp-action="RecursoIndex" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="RecursoIndex" class="cb-menu-item" title="Recursos">
                 <i class="bi bi-building"></i>
-                Recursos
+                <span class="cb-menu-text">Recursos</span>
             </a>
 
-            <a asp-controller="Admin" asp-action="Finanzas" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="Finanzas" class="cb-menu-item" title="Finanzas">
                 <i class="bi bi-cash-stack"></i>
-                Finanzas
+                <span class="cb-menu-text">Finanzas</span>
             </a>
 
-            <a asp-controller="Admin" asp-action="AuditoriaIndex" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="AuditoriaIndex" class="cb-menu-item" title="Auditoría">
                 <i class="bi bi-journal-code"></i>
-                Auditoria
+                <span class="cb-menu-text">Auditoria</span>
             </a>
 
-            <div class="cb-nav-label">Calendarios</div>
+            <div class="cb-nav-label cb-text-hide">Calendarios</div>
 
-            <a asp-controller="Admin" asp-action="CalendarioHotel" class="cb-menu-item">
-                <i class="bi bi-calendar2-week"></i> Hotel
+            <a asp-controller="Admin" asp-action="CalendarioHotel" class="cb-menu-item" title="Hotel">
+                <i class="bi bi-calendar2-week"></i>
+                <span class="cb-menu-text">Hotel</span>
             </a>
 
-            <a asp-controller="Admin" asp-action="CalendarioRancho" class="cb-menu-item">
-                <i class="bi bi-calendar2-heart"></i> Rancho
+            <a asp-controller="Admin" asp-action="CalendarioRancho" class="cb-menu-item" title="Rancho">
+                <i class="bi bi-calendar2-heart"></i>
+                <span class="cb-menu-text">Rancho</span>
             </a>
         </div>
 
         <div class="cb-logout-area">
-            <a asp-controller="Login" asp-action="Logout" class="cb-logout">
+            <a asp-controller="Login" asp-action="Logout" class="cb-logout" title="Cerrar Sesión">
                 <i class="bi bi-box-arrow-right"></i>
-                Cerrar Sesión
+                <span class="cb-menu-text">Cerrar Sesión</span>
             </a>
         </div>
     </div>
 
     <!-- CONTENIDO -->
-    <div class="cb-content">
+    <div class="cb-content" id="cbContent">
         <main role="main">
             @RenderBody()
         </main>
     </div>
 
-    <style>
-        /* =============================================
-                   COCOBEACH — SISTEMA DE DISEÑO ESTÁNDAR
-                   Paleta principal: Celeste tropical
-                ============================================= */
+    <div class="cb-profile-popup" id="cbProfilePopup">
+        <a asp-controller="Admin" asp-action="MiPerfil" asp-route-id="@idpersona" class="cb-profile-popup-item">
+            <i class="bi bi-person-gear"></i>
+            <span>Editar Perfil</span>
+        </a>
 
+        <div class="cb-profile-popup-divider"></div>
+        <a asp-controller="Admin" asp-action="DescargarRespaldo" class="cb-profile-popup-item">
+            <i class="bi bi-database-down"></i>
+            <span>Generar Respaldo BD</span>
+        </a>
+    </div>
+
+    <style>
         :root {
             --cb-primary: #29B6D2;
             --cb-primary-dark: #1A8FA8;
@@ -129,6 +157,7 @@
             --font-heading: 'Raleway', sans-serif;
             --font-body: 'Lato', sans-serif;
             --sidebar-width: 260px;
+            --sidebar-mini-width: 68px;
             --shadow-card: 0 4px 20px rgba(41, 182, 210, 0.10);
             --shadow-hover: 0 8px 28px rgba(41, 182, 210, 0.18);
         }
@@ -151,9 +180,7 @@
             color: var(--cb-text-main);
         }
 
-        /* =============================================
-                   SIDEBAR
-                ============================================= */
+        /* SIDEBAR */
         .cb-sidebar {
             width: var(--sidebar-width);
             height: 100vh;
@@ -164,10 +191,11 @@
             left: 0;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-            z-index:151;
+            overflow: visible;
+            overflow-y: auto;
+            z-index: 151;
             box-shadow: 4px 0 20px rgba(0,0,0,0.15);
-            transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 0.28s cubic-bezier(0.4,0,0.2,1), left 0.28s cubic-bezier(0.4,0,0.2,1);
         }
 
             .cb-sidebar::before {
@@ -178,35 +206,78 @@
                 right: 0;
                 height: 4px;
                 background: linear-gradient(90deg, var(--cb-primary), var(--cb-accent), var(--cb-primary));
+                z-index: 1;
             }
 
+            /* ESTADO COLAPSADO */
+            .cb-sidebar.collapsed {
+                width: var(--sidebar-mini-width);
+            }
+
+                .cb-sidebar.collapsed .cb-brand-logo-full {
+                    display: none !important;
+                }
+
+                .cb-sidebar.collapsed .cb-brand-logo-mini {
+                    display: block !important;
+                }
+
+                .cb-sidebar.collapsed .cb-brand {
+                    padding: 14px 10px 8px;
+                }
+
+                .cb-sidebar.collapsed .cb-user-info {
+                    flex-direction: column;
+                    align-items: center;
+                }
+
+                .cb-sidebar.collapsed .cb-profile-btn {
+                    margin: 0 auto;
+                }
+
+                .cb-sidebar.collapsed .cb-collapse-btn {
+                    justify-content: center;
+                    padding: 6px;
+                }
+
+                .cb-sidebar.collapsed .cb-nav {
+                    padding: 8px 6px;
+                }
+
+                .cb-sidebar.collapsed .cb-menu-item {
+                    justify-content: center;
+                    padding: 12px 0;
+                }
+
+                    .cb-sidebar.collapsed .cb-menu-item i {
+                        margin: 0;
+                        width: auto;
+                    }
+
+                .cb-sidebar.collapsed .cb-logout {
+                    justify-content: center;
+                    padding: 10px 0;
+                }
+
+                .cb-sidebar.collapsed .cb-logout-area {
+                    padding: 16px 6px;
+                }
+
+                .cb-sidebar.collapsed .cb-text-hide,
+                .cb-sidebar.collapsed .cb-menu-text {
+                    display: none !important;
+                }
+
+                .cb-sidebar.collapsed #collapseIcon {
+                    transform: rotate(180deg);
+                }
+
+        /* BRAND */
         .cb-brand {
-            padding: 10px 10px 5px; /* ← reducido de 28px 20px 24px */
+            padding: 10px 10px 5px;
+            transition: padding 0.28s;
+            flex-shrink: 0;
         }
-
-        .cb-brand-title {
-            font-family: var(--font-heading);
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--cb-white);
-            letter-spacing: 0.5px;
-            line-height: 1.1;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-            .cb-brand-title .brand-icon {
-                width: 36px;
-                height: 36px;
-                background: var(--cb-primary);
-                border-radius: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 18px;
-                flex-shrink: 0;
-            }
 
         .cb-brand-sub {
             font-family: var(--font-body);
@@ -215,35 +286,193 @@
             letter-spacing: 2px;
             text-transform: uppercase;
             margin-top: 4px;
-            padding-left: 46px;
+            text-align: center;
         }
 
+        /* USER INFO */
         .cb-user-info {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 2px;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 6px 14px 10px;
             border-bottom: 1px solid rgba(255,255,255,0.07);
-            text-align: center;
+            position: relative;
+            flex-shrink: 0;
         }
 
         .cb-user-data {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            width: 100%;
+            min-width: 0;
+            flex: 1;
         }
 
         .cb-user-name {
             color: white;
             font-weight: 700;
             font-size: 13px;
-            text-align: center;
             word-break: break-word;
         }
 
+        .cb-user-sub {
+            font-size: 10px;
+            color: var(--cb-primary-light);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* BOTÓN PERFIL */
+        .cb-profile-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.75);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+
+            .cb-profile-btn:hover,
+            .cb-profile-btn.active {
+                background: var(--cb-primary);
+                border-color: var(--cb-primary);
+                color: #fff;
+            }
+
+        /* POPUP DE PERFIL (estilo base) */
+        .cb-profile-popup {
+            position: fixed; /* <-- fixed en lugar de absolute */
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(41,182,210,0.12);
+            padding: 6px;
+            min-width: 210px;
+            max-width: calc(100vw - 20px);
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.97);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+            pointer-events: none;
+        }
+
+            .cb-profile-popup.open {
+                opacity: 1;
+                visibility: visible;
+                transform: scale(1);
+                pointer-events: auto;
+            }
+
+        .cb-sidebar.collapsed .cb-profile-popup {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18), 4px 0 12px rgba(41,182,210,0.08);
+        }
+
+
+        /* MODO COLAPSADO */
+        .cb-sidebar.collapsed .cb-profile-popup {
+            top: 0;
+            left: calc(100% + 12px);
+            right: auto;
+            transform: scale(0.97);
+        }
+
+            /* MODO COLAPSADO ABIERTO */
+            .cb-sidebar.collapsed .cb-profile-popup.open {
+                transform: scale(1);
+            }
+
+
+            .cb-profile-popup.open {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0) scale(1);
+                pointer-events: auto;
+            }
+
+            /* Cuando el popup se usa en modo fijo (sidebar colapsado) se le agrega una clase auxiliar */
+            .cb-profile-popup.fixed-mode {
+                position: fixed !important;
+                top: auto !important;
+                right: auto !important;
+                bottom: auto !important;
+                left: auto !important;
+                transform: none !important;
+                margin: 0;
+                z-index: 2000;
+            }
+
+        .cb-profile-popup-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: var(--cb-text-main);
+            text-decoration: none;
+            font-size: 14px;
+            font-family: var(--font-body);
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+
+            .cb-profile-popup-item i {
+                font-size: 17px;
+                color: var(--cb-primary);
+                width: 20px;
+                text-align: center;
+            }
+
+            .cb-profile-popup-item:hover {
+                background: var(--cb-primary-pale);
+                color: var(--cb-primary-dark);
+                text-decoration: none;
+            }
+
+        .cb-profile-popup-divider {
+            height: 1px;
+            background: var(--cb-border);
+            margin: 4px 8px;
+        }
+
+        /* BOTÓN COLAPSAR */
+        .cb-collapse-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.4);
+            font-size: 13px;
+            font-family: var(--font-body);
+            padding: 7px 16px;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            flex-shrink: 0;
+            justify-content: flex-end;
+        }
+
+            .cb-collapse-btn:hover {
+                color: var(--cb-primary-light);
+                background: rgba(255,255,255,0.04);
+            }
+
+        #collapseIcon {
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        /* NAV */
         .cb-nav-label {
             font-family: var(--font-body);
             font-size: 10px;
@@ -252,12 +481,15 @@
             text-transform: uppercase;
             color: rgba(255,255,255,0.3);
             padding: 20px 20px 6px;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
         .cb-nav {
             flex: 1;
             padding: 8px 12px;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
             .cb-nav::-webkit-scrollbar {
@@ -286,7 +518,8 @@
             font-family: var(--font-body);
             font-weight: 400;
             transition: all 0.2s ease;
-            position: relative;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
             .cb-menu-item i {
@@ -294,7 +527,6 @@
                 width: 22px;
                 text-align: center;
                 flex-shrink: 0;
-                transition: color 0.2s;
             }
 
             .cb-menu-item:hover {
@@ -307,16 +539,14 @@
                 background-color: var(--cb-primary);
                 color: var(--cb-white);
                 font-weight: 600;
-                box-shadow: 0 4px 14px rgba(41, 182, 210, 0.35);
+                box-shadow: 0 4px 14px rgba(41,182,210,0.35);
             }
 
-                .cb-menu-item.active i {
-                    color: var(--cb-white);
-                }
-
+        /* LOGOUT */
         .cb-logout-area {
             padding: 16px 12px;
             border-top: 1px solid rgba(255,255,255,0.07);
+            flex-shrink: 0;
         }
 
         .cb-logout {
@@ -330,26 +560,29 @@
             font-size: 14px;
             font-family: var(--font-body);
             transition: all 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
             .cb-logout:hover {
-                background-color: rgba(224, 92, 107, 0.12);
+                background-color: rgba(224,92,107,0.12);
                 color: #E05C6B;
                 text-decoration: none;
             }
 
-        /* =============================================
-                   CONTENIDO PRINCIPAL
-                ============================================= */
+        /* CONTENIDO */
         .cb-content {
             margin-left: var(--sidebar-width);
             padding: 28px 32px;
             min-height: 100vh;
+            transition: margin-left 0.28s cubic-bezier(0.4,0,0.2,1);
         }
 
-        /* =============================================
-                   COMPONENTES REUTILIZABLES
-                ============================================= */
+            .cb-content.collapsed {
+                margin-left: var(--sidebar-mini-width);
+            }
+
+        /* COMPONENTES */
         .cb-page-header {
             background: linear-gradient(135deg, var(--cb-primary) 0%, var(--cb-primary-dark) 100%);
             border-radius: 16px;
@@ -491,7 +724,7 @@
         }
 
             .cb-btn-danger:hover {
-                background-color: rgba(224, 92, 107, 0.08);
+                background-color: rgba(224,92,107,0.08);
             }
 
         .cb-btn-warning {
@@ -501,7 +734,7 @@
         }
 
             .cb-btn-warning:hover {
-                background-color: rgba(245, 166, 35, 0.08);
+                background-color: rgba(245,166,35,0.08);
             }
 
         .cb-btn-volver {
@@ -587,7 +820,7 @@
             .cb-form-control:focus {
                 outline: none;
                 border-color: var(--cb-primary);
-                box-shadow: 0 0 0 3px rgba(41, 182, 210, 0.15);
+                box-shadow: 0 0 0 3px rgba(41,182,210,0.15);
             }
 
         .cb-label {
@@ -640,15 +873,12 @@
                 margin-top: 4px;
             }
 
-        /* =============================================
-                   RESPONSIVE — SIDEBAR MÓVIL
-                ============================================= */
+        /* RESPONSIVE */
         .cb-hamburger {
             display: none;
             position: fixed;
             top: 12px;
             left: 12px;
-            right: auto;
             z-index: 200;
             width: 42px;
             height: 42px;
@@ -682,26 +912,64 @@
             }
 
         @@media (max-width: 768px) {
+            .cb-collapse-btn {
+                display: none;
+            }
+
             .cb-hamburger {
                 display: flex;
             }
 
             .cb-sidebar {
                 left: -260px;
+                width: var(--sidebar-width) !important;
             }
 
                 .cb-sidebar.abierto {
                     left: 0;
                 }
 
+                .cb-sidebar .cb-text-hide,
+                .cb-sidebar .cb-menu-text {
+                    display: block !important;
+                }
+
+                .cb-sidebar .cb-brand-logo-full {
+                    display: block !important;
+                }
+
+                .cb-sidebar .cb-brand-logo-mini {
+                    display: none !important;
+                }
+
+                .cb-sidebar .cb-menu-item {
+                    justify-content: flex-start !important;
+                    padding: 11px 14px !important;
+                }
+
+                .cb-sidebar .cb-logout {
+                    justify-content: flex-start !important;
+                    padding: 10px 14px !important;
+                }
+
+                .cb-sidebar .cb-user-info {
+                    justify-content: space-between;
+                    padding: 6px 14px 10px;
+                }
+
             .cb-content {
-                margin-left: 0;
+                margin-left: 0 !important;
                 padding: 16px;
                 padding-top: 64px;
             }
 
             .cb-page-header {
                 padding-left: 64px;
+            }
+
+            .cb-profile-popup {
+                min-width: 200px !important;
+                max-width: 230px !important;
             }
         }
     </style>
@@ -711,16 +979,20 @@
     @RenderSection("Scripts", required: false)
 
     <script>
-        const sidebar   = document.getElementById('cbSidebar');
-        const overlay   = document.getElementById('sidebarOverlay');
-        const hamburger = document.getElementById('btnHamburger');
+        const sidebar     = document.getElementById('cbSidebar');
+        const content     = document.getElementById('cbContent');
+        const overlay     = document.getElementById('sidebarOverlay');
+        const hamburger   = document.getElementById('btnHamburger');
+        const btnCollapse = document.getElementById('btnCollapse');
+        const btnPerfil   = document.getElementById('btnPerfil');
+        const popup       = document.getElementById('cbProfilePopup');
 
+        /* SIDEBAR MÓVIL */
         function abrirSidebar() {
             sidebar.classList.add('abierto');
             overlay.classList.add('activo');
-            hamburger.innerHTML = '<i class="bi bi-x-lg"></i>';
+            hamburger.innerHTML = '<i class="bi bi-list"></i>';
         }
-
         function cerrarSidebar() {
             sidebar.classList.remove('abierto');
             overlay.classList.remove('activo');
@@ -730,11 +1002,108 @@
         hamburger.addEventListener('click', () => {
             sidebar.classList.contains('abierto') ? cerrarSidebar() : abrirSidebar();
         });
-
         overlay.addEventListener('click', cerrarSidebar);
-
         document.querySelectorAll('.cb-menu-item').forEach(link => {
             link.addEventListener('click', cerrarSidebar);
+        });
+
+        /* COLAPSO DESKTOP */
+        const COLLAPSED_KEY = 'cbSidebarCollapsed';
+
+        function applySidebarState(collapsed, animate) {
+            if (!animate) {
+                sidebar.style.transition = 'none';
+                content.style.transition = 'none';
+            }
+            collapsed
+                ? (sidebar.classList.add('collapsed'), content.classList.add('collapsed'))
+                : (sidebar.classList.remove('collapsed'), content.classList.remove('collapsed'));
+            if (!animate) {
+                sidebar.offsetHeight;
+                content.offsetHeight;
+                sidebar.style.transition = '';
+                content.style.transition = '';
+            }
+        }
+
+        const savedCollapsed = localStorage.getItem(COLLAPSED_KEY) === 'true';
+        applySidebarState(savedCollapsed, false);
+
+        btnCollapse.addEventListener('click', () => {
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            applySidebarState(!isCollapsed, true);
+            localStorage.setItem(COLLAPSED_KEY, String(!isCollapsed));
+            // Reposicionar popup si está abierto
+            if (popup.classList.contains('open')) {
+                setTimeout(positionPopup, 290);
+            }
+        });
+
+        /* POPUP DE PERFIL - siempre fixed, siempre bien posicionado */
+                function positionPopup() {
+            const btnRect = btnPerfil.getBoundingClientRect();
+            const sidebarRect = sidebar.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const isMobile = viewportWidth <= 768;
+            const popupWidth = isMobile ? 220 : 210;
+
+            let leftPos, topPos;
+
+            if (isMobile) {
+                // Debajo del botón, alineado al inicio del sidebar pero sin salirse
+                topPos = btnRect.bottom + 8;
+                leftPos = sidebarRect.left + 10;
+            } else {
+                topPos = btnRect.top;
+                leftPos = sidebarRect.right + 8;
+            }
+
+            // Nunca salirse por la derecha
+            if (leftPos + popupWidth > viewportWidth - 10) {
+                leftPos = viewportWidth - popupWidth - 10;
+            }
+            // Nunca salirse por la izquierda
+            if (leftPos < 10) leftPos = 10;
+
+            const popupHeight = popup.offsetHeight || 100;
+            if (topPos + popupHeight > viewportHeight - 10) {
+                topPos = viewportHeight - popupHeight - 10;
+            }
+            if (topPos < 10) topPos = 10;
+
+            popup.style.top = topPos + 'px';
+            popup.style.left = leftPos + 'px';
+        }
+
+        function openPopup() {
+            positionPopup();
+            popup.classList.add('open');
+            btnPerfil.classList.add('active');
+        }
+
+        function closePopup() {
+            popup.classList.remove('open');
+            btnPerfil.classList.remove('active');
+        }
+
+        btnPerfil.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popup.classList.contains('open') ? closePopup() : openPopup();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!popup.contains(e.target) && e.target !== btnPerfil) {
+                closePopup();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePopup();
+        });
+
+        window.addEventListener('resize', () => {
+            if (popup.classList.contains('open')) positionPopup();
         });
     </script>
 </body>

@@ -10,6 +10,7 @@ using QuestPDF.Infrastructure;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Coco_Beach.Controllers
 {
@@ -374,6 +375,69 @@ namespace Coco_Beach.Controllers
 
             // Si falló, recargar el SelectList
             ViewBag.RolSelect = new SelectList(_context.rol.ToList(), "rolid", "nombre", persona.rolid);
+            return View(persona);
+        }
+
+        // GET
+        [AutenticationAttribute.Autenticacion]
+        public async Task<IActionResult> MiPerfil(int id)
+        {
+            // Obtener ID del usuario logueado
+
+            var persona = await _context.persona
+                .Include(p => p.rol)
+                .FirstOrDefaultAsync(p => p.personaid == id);
+
+            if (persona == null)
+                return NotFound();
+
+            return View(persona);
+        }
+
+        // POST
+        [AutenticationAttribute.Autenticacion]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MiPerfil(int id, string password)
+        {
+
+
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                ModelState.AddModelError("password", "La contraseña es obligatoria.");
+            }
+            else if (password.Length < 8)
+            {
+                ModelState.AddModelError("password", "La contraseña debe tener al menos 8 caracteres.");
+            }
+
+            var persona = await _context.persona
+                .FirstOrDefaultAsync(p => p.personaid == id);
+
+            if (persona == null)
+                return NotFound();
+
+            if (ModelState.IsValid)
+            {
+                var usuario = await _context.usuario
+                    .FirstOrDefaultAsync(u => u.personaid == id);
+
+                if (usuario != null)
+                {
+                    var passwordHasher = new PasswordHasher<object>();
+
+                    usuario.password = passwordHasher.HashPassword(null, password);
+
+                    _context.usuario.Update(usuario);
+
+                    await _context.SaveChangesAsync();
+
+                    TempData["Success"] = "Contraseña actualizada correctamente.";
+                }
+
+                return RedirectToAction(nameof(Dashboard));
+            }
+
             return View(persona);
         }
 
