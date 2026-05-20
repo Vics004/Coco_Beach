@@ -56,7 +56,7 @@
         <div class="dropdown">
             <button class="btn btn-light fw-bold px-4 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" style="border-radius: 30px; color: #29b6d2;">
                 <i class="bi bi-calendar3 me-2"></i>
-                @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(ViewBag.MesFiltro) @ViewBag.AnioFiltro
+                @(new System.Globalization.CultureInfo("es-SV").DateTimeFormat.GetMonthName((int)ViewBag.MesFiltro)) @ViewBag.AnioFiltro
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2" style="border-radius: 15px;">
                 @foreach (var mes in (IEnumerable<SelectListItem>)ViewBag.MesesList)

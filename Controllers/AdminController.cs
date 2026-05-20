@@ -1669,10 +1669,11 @@ namespace Coco_Beach.Controllers
             ViewBag.AnioFiltro = anioFiltro;
 
             // Lista de meses para el filtro
+            var culturaEspanol = new System.Globalization.CultureInfo("es-SV");
             var meses = Enumerable.Range(1, 12).Select(m => new
             {
                 Value = m,
-                Text = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+                Text = culturaEspanol.DateTimeFormat.GetMonthName(m)
             });
             ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
 
