@@ -1613,7 +1613,7 @@ namespace Coco_Beach.Controllers
         // ==============================================
 
         // GET: Admin/Dashboard
-        [AuthorizeRole("Administrador", "Dueño")]
+        [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Encargado")]
         public async Task<IActionResult> Dashboard(int? mes, int? anio)
         {
             // Fecha actual en UTC

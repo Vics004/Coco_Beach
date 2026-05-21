@@ -57,6 +57,7 @@
             background-color: var(--cb-bg);
             color: var(--cb-text-main);
             min-height: 100vh;
+            visibility: hidden;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -790,6 +791,12 @@
             }
         }
     </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.style.visibility = 'visible';
+        });
+    </script>
 
     @RenderSection("Styles", required: false)
 </head>
