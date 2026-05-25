@@ -1732,17 +1732,126 @@ namespace Coco_Beach.Controllers
 
 
         // ==============================================
-        // AUDITORÍA - LISTADO Y FILTRADO (sin navegaciones)
+        // AUDITORÍA - LOOKUPS PARA RESOLUCIÓN DE IDs
+        // ==============================================
+
+        private async Task<(
+            Dictionary<int, string> personas,
+            Dictionary<int, string> usuarios,
+            Dictionary<int, string> recursos,
+            Dictionary<int, string> estados,
+            Dictionary<int, string> roles
+        )> CargarLookupsAuditoriaAsync()
+        {
+            var personas = await _context.persona
+                .ToDictionaryAsync(p => p.personaid, p => $"{p.nombre} {p.apellido}");
+
+            // Usuarios resueltos al nombre de su persona vinculada
+            var usuarios = await _context.usuario
+                .ToDictionaryAsync(
+                    u => u.usuarioid,
+                    u => personas.TryGetValue(u.personaid, out var n) ? n : $"ID:{u.usuarioid}"
+                );
+
+            var recursos = await _context.recurso
+                .ToDictionaryAsync(r => r.recursoid, r => r.nombre ?? $"ID:{r.recursoid}");
+
+            var estados = await _context.estado
+                .ToDictionaryAsync(e => e.estadoid, e => e.nombre ?? $"ID:{e.estadoid}");
+
+            var roles = await _context.rol
+                .ToDictionaryAsync(r => r.rolid, r => r.nombre ?? $"ID:{r.rolid}");
+
+            return (personas, usuarios, recursos, estados, roles);
+        }
+
+        /// <summary>
+        /// Dado un JSON de auditoría, sustituye los IDs de FK por su nombre legible.
+        /// </summary>
+        private static Dictionary<string, string> ResolverIdsEnJson(
+            string? json,
+            Dictionary<int, string> personas,
+            Dictionary<int, string> usuarios,
+            Dictionary<int, string> recursos,
+            Dictionary<int, string> estados,
+            Dictionary<int, string> roles)
+        {
+            var resultado = new Dictionary<string, string>();
+            if (string.IsNullOrEmpty(json)) return resultado;
+
+            // Mapa: nombre del campo JSON → diccionario de lookup correspondiente
+            var lookups = new Dictionary<string, Dictionary<int, string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["clienteid"] = personas,
+                ["empleadoid"] = usuarios,
+                ["usuarioid"] = usuarios,
+                ["personaid"] = personas,
+                ["recursoid"] = recursos,
+                ["estadoid"] = estados,
+                ["rolid"] = roles,
+            };
+
+            try
+            {
+                var obj = System.Text.Json.JsonSerializer
+                    .Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(json);
+
+                if (obj == null) return resultado;
+
+                foreach (var kvp in obj)
+                {
+                    string rawValor = kvp.Value.ToString() ?? "null";
+
+                    if (lookups.TryGetValue(kvp.Key, out var lookup) &&
+                        int.TryParse(rawValor, out int id) &&
+                        lookup.TryGetValue(id, out var nombre))
+                    {
+                        resultado[kvp.Key] = $"{nombre} (ID:{id})";
+                    }
+                    else
+                    {
+                        resultado[kvp.Key] = rawValor;
+                    }
+                }
+            }
+            catch
+            {
+                resultado["_raw"] = json.Length > 80 ? json[..77] + "…" : json;
+            }
+
+            return resultado;
+        }
+
+        /// <summary>
+        /// Formatea el diccionario resuelto en una cadena legible, con truncado.
+        /// </summary>
+        private static string FormatearDiccionario(Dictionary<string, string> resuelto, int maxLen = 200)
+        {
+            if (resuelto.Count == 0) return "—";
+
+            var partes = resuelto.Select(kvp =>
+            {
+                var v = kvp.Value.Length > 100 ? kvp.Value[..97] + "..." : kvp.Value;
+                return $"{kvp.Key}: {v}";
+            });
+
+            var resultado = string.Join(" | ", partes);
+            return resultado.Length > maxLen ? resultado[..(maxLen - 3)] + "..." : resultado;
+        }
+
+
+        // ==============================================
+        // AUDITORÍA - LISTADO Y FILTRADO
         // ==============================================
 
         [AuthorizeRole("Administrador")]
         public async Task<IActionResult> AuditoriaIndex(
-    string? tabla,
-    string? accion,
-    int? usuarioId,
-    DateTime? fechaInicio,
-    DateTime? fechaFin,
-    string? search)
+            string? tabla,
+            string? accion,
+            int? usuarioId,
+            DateTime? fechaInicio,
+            DateTime? fechaFin,
+            string? search)
         {
             var query = _context.auditoria.AsQueryable();
 
@@ -1753,7 +1862,7 @@ namespace Coco_Beach.Controllers
             if (usuarioId.HasValue && usuarioId.Value > 0)
                 query = query.Where(a => a.usuarioid == usuarioId.Value);
 
-            // ✅ Corrección para fechas UTC
+            // Corrección para fechas UTC
             if (fechaInicio.HasValue)
             {
                 var inicioUtc = DateTime.SpecifyKind(fechaInicio.Value.Date, DateTimeKind.Utc);
@@ -1779,7 +1888,7 @@ namespace Coco_Beach.Controllers
                 .OrderByDescending(a => a.fecha_accion)
                 .ToListAsync();
 
-            // Resto del código (JOIN usuarios, ViewBags, etc.) igual...
+            // JOIN para mostrar el nombre del usuario en la columna "Usuario"
             var userIds = auditorias.Select(a => a.usuarioid).Distinct().ToList();
             var usuariosInfo = await (
                 from u in _context.usuario
@@ -1805,17 +1914,32 @@ namespace Coco_Beach.Controllers
             ViewBag.FechaFin = fechaFin?.ToString("yyyy-MM-dd");
             ViewBag.SearchText = search;
 
+            // Lookups para resolver IDs dentro de los valores JSON (valor_anterior / valor_nuevo)
+            var (lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles) =
+                await CargarLookupsAuditoriaAsync();
+
+            ViewBag.LkPersonas = lkPersonas;
+            ViewBag.LkUsuarios = lkUsuarios;
+            ViewBag.LkRecursos = lkRecursos;
+            ViewBag.LkEstados = lkEstados;
+            ViewBag.LkRoles = lkRoles;
+
             return View(auditorias);
         }
 
+
+        // ==============================================
+        // AUDITORÍA - EXPORTAR PDF
+        // ==============================================
+
         [AuthorizeRole("Administrador")]
         public async Task<IActionResult> ExportarAuditoriaPDF(
-     string? tabla,
-     string? accion,
-     int? usuarioId,
-     DateTime? fechaInicio,
-     DateTime? fechaFin,
-     string? search)
+            string? tabla,
+            string? accion,
+            int? usuarioId,
+            DateTime? fechaInicio,
+            DateTime? fechaFin,
+            string? search)
         {
             var query = _context.auditoria.AsQueryable();
 
@@ -1826,7 +1950,6 @@ namespace Coco_Beach.Controllers
             if (usuarioId.HasValue && usuarioId.Value > 0)
                 query = query.Where(a => a.usuarioid == usuarioId.Value);
 
-            // ✅ Corrección igual que arriba
             if (fechaInicio.HasValue)
             {
                 var inicioUtc = DateTime.SpecifyKind(fechaInicio.Value.Date, DateTimeKind.Utc);
@@ -1860,55 +1983,35 @@ namespace Coco_Beach.Controllers
                 select new { u.usuarioid, NombreCompleto = p.nombre + " " + p.apellido }
             ).ToDictionaryAsync(k => k.usuarioid, v => v.NombreCompleto);
 
-            var pdfBytes = CrearPDFAuditoria(auditorias, usuariosInfo, tabla, accion, usuarioId, fechaInicio, fechaFin, search);
-            return File(pdfBytes, "application/pdf", $"Reporte_Auditoria_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+            // Cargar lookups para resolver IDs en el PDF
+            var (lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles) =
+                await CargarLookupsAuditoriaAsync();
+
+            var pdfBytes = CrearPDFAuditoria(
+                auditorias, usuariosInfo,
+                lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles,
+                tabla, accion, usuarioId, fechaInicio, fechaFin, search);
+
+            return File(pdfBytes, "application/pdf",
+                $"Reporte_Auditoria_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
         }
 
         private byte[] CrearPDFAuditoria(
-     List<auditoria> auditorias,
-     Dictionary<int, string> nombresUsuarios,
-     string? tablaFiltro,
-     string? accionFiltro,
-     int? usuarioIdFiltro,
-     DateTime? fechaInicio,
-     DateTime? fechaFin,
-     string? search)
+            List<auditoria> auditorias,
+            Dictionary<int, string> nombresUsuarios,
+            Dictionary<int, string> lkPersonas,
+            Dictionary<int, string> lkUsuarios,
+            Dictionary<int, string> lkRecursos,
+            Dictionary<int, string> lkEstados,
+            Dictionary<int, string> lkRoles,
+            string? tablaFiltro,
+            string? accionFiltro,
+            int? usuarioIdFiltro,
+            DateTime? fechaInicio,
+            DateTime? fechaFin,
+            string? search)
         {
             QuestPDF.Settings.License = LicenseType.Community;
-
-            // Función local para formatear el JSON
-            string FormatearJsonPDF(string? json)
-            {
-                if (string.IsNullOrEmpty(json))
-                    return "—";
-
-                try
-                {
-                    var obj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-                    if (obj == null || obj.Count == 0)
-                        return "—";
-
-                    var partes = new List<string>();
-                    foreach (var kvp in obj)
-                    {
-                        string valor = kvp.Value?.ToString() ?? "null";
-                        // Truncar valores muy largos para PDF (más agresivo porque el ancho es limitado)
-                        if (valor.Length > 200)
-                            valor = valor.Substring(0, 97) + "...";
-                        partes.Add($"{kvp.Key}: {valor}");
-                    }
-                    string resultado = string.Join(" | ", partes);
-                    // Si el resultado es muy largo, truncar a 100 caracteres (para evitar desborde en PDF)
-                    if (resultado.Length > 200)
-                        resultado = resultado.Substring(0, 97) + "...";
-                    return resultado;
-                }
-                catch
-                {
-                    // Si falla el parseo, mostrar el texto original truncado
-                    return json.Length > 80 ? json.Substring(0, 77) + "…" : json;
-                }
-            }
 
             return Document.Create(container =>
             {
@@ -1948,14 +2051,14 @@ namespace Coco_Beach.Controllers
                     {
                         table.ColumnsDefinition(columns =>
                         {
-                            columns.RelativeColumn(0.8f);
-                            columns.RelativeColumn(1f);
-                            columns.RelativeColumn(1f);
-                            columns.RelativeColumn(1f);
-                            columns.RelativeColumn(3.5f);
-                            columns.RelativeColumn(3.5f);
-                            columns.RelativeColumn(2f);
-                            columns.RelativeColumn(2f);
+                            columns.RelativeColumn(0.8f); // ID
+                            columns.RelativeColumn(1f);   // Tabla
+                            columns.RelativeColumn(1f);   // Registro ID
+                            columns.RelativeColumn(1f);   // Acción
+                            columns.RelativeColumn(3.5f); // Valor Anterior
+                            columns.RelativeColumn(3.5f); // Valor Nuevo
+                            columns.RelativeColumn(2f);   // Usuario
+                            columns.RelativeColumn(2f);   // Fecha
                         });
 
                         table.Header(header =>
@@ -1972,20 +2075,27 @@ namespace Coco_Beach.Controllers
 
                         foreach (var a in auditorias)
                         {
-                            string nombreUsuario = nombresUsuarios.ContainsKey(a.usuarioid)
-                                ? nombresUsuarios[a.usuarioid]
-                                : $"ID:{a.usuarioid}";
+                            string nombreUsuario = nombresUsuarios.TryGetValue(a.usuarioid, out var n)
+                                ? n : $"ID:{a.usuarioid}";
 
-                            // Usamos la nueva función de formateo
-                            string valorAnteriorFormateado = FormatearJsonPDF(a.valor_anterior);
-                            string valorNuevoFormateado = FormatearJsonPDF(a.valor_nuevo);
+                            var resAnterior = ResolverIdsEnJson(
+                                a.valor_anterior, lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles);
+                            var resNuevo = ResolverIdsEnJson(
+                                a.valor_nuevo, lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles);
+
+                            // Sin truncado — texto completo para el PDF
+                            string FormatearPDF(Dictionary<string, string> d)
+                            {
+                                if (d.Count == 0) return "—";
+                                return string.Join("\n", d.Select(kvp => $"{kvp.Key}: {kvp.Value}"));
+                            }
 
                             table.Cell().Padding(3).Text(a.auditoriaid.ToString());
                             table.Cell().Padding(3).Text(a.tabla_afectada ?? "");
                             table.Cell().Padding(3).Text(a.registroid.ToString());
                             table.Cell().Padding(3).Text(a.accion ?? "");
-                            table.Cell().Padding(3).Text(valorAnteriorFormateado);
-                            table.Cell().Padding(3).Text(valorNuevoFormateado);
+                            table.Cell().Padding(3).Text(FormatearPDF(resAnterior));
+                            table.Cell().Padding(3).Text(FormatearPDF(resNuevo));
                             table.Cell().Padding(3).Text(nombreUsuario);
                             table.Cell().Padding(3).Text(a.fecha_accion?.ToString("dd/MM/yyyy HH:mm:ss") ?? "");
                         }

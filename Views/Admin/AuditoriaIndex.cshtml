@@ -3,44 +3,80 @@
 @{
     ViewData["Title"] = "Registro de Auditoría";
     Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
+
+    var lkPersonas = ViewBag.LkPersonas as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkUsuarios = ViewBag.LkUsuarios as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkRecursos = ViewBag.LkRecursos as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkEstados  = ViewBag.LkEstados  as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkRoles    = ViewBag.LkRoles    as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var nombresUsuarios = ViewBag.NombresUsuarios as Dictionary<int, string> ?? new Dictionary<int, string>();
 }
 
 @functions {
-    public string FormatearJson(string json)
+
+    Dictionary<string, string> ResolverJson(
+        string? json,
+        Dictionary<int, string> personas,
+        Dictionary<int, string> usuarios,
+        Dictionary<int, string> recursos,
+        Dictionary<int, string> estados,
+        Dictionary<int, string> roles)
     {
-        if (string.IsNullOrEmpty(json))
-            return "—";
+        var resultado = new Dictionary<string, string>();
+        if (string.IsNullOrEmpty(json)) return resultado;
+
+        var lookups = new Dictionary<string, Dictionary<int, string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["clienteid"]  = personas,
+            ["empleadoid"] = usuarios,
+            ["usuarioid"]  = usuarios,
+            ["personaid"]  = personas,
+            ["recursoid"]  = recursos,
+            ["estadoid"]   = estados,
+            ["rolid"]      = roles,
+        };
 
         try
         {
-            // Deserializar el JSON a un diccionario
-            var obj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-            if (obj == null || obj.Count == 0)
-                return "—";
+            var obj = System.Text.Json.JsonSerializer
+                .Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(json);
 
-            // Construir una cadena legible: "campo: valor | campo: valor"
-            var partes = new List<string>();
+            if (obj == null) return resultado;
+
             foreach (var kvp in obj)
             {
-                string valor = kvp.Value?.ToString() ?? "null";
-                // Truncar valores muy largos para no romper la tabla
-                if (valor.Length > 200)
-                    valor = valor.Substring(0, 97) + "...";
-                partes.Add($"{kvp.Key}: {valor}");
+                string raw = kvp.Value.ToString() ?? "null";
+
+                if (lookups.TryGetValue(kvp.Key, out var lk) &&
+                    int.TryParse(raw, out int id) &&
+                    lk.TryGetValue(id, out var nombre))
+                {
+                    resultado[kvp.Key] = $"{nombre} (ID:{id})";
+                }
+                else
+                {
+                    resultado[kvp.Key] = raw;
+                }
             }
-            return string.Join(" | ", partes);
         }
         catch
         {
-            // Si falla el parseo, mostrar el texto original truncado
-            return json.Length > 80 ? json.Substring(0, 77) + "…" : json;
+            resultado["_raw"] = json.Length > 80 ? json[..77] + "…" : json;
         }
+
+        return resultado;
+    }
+    string Formatear(Dictionary<string, string> d)
+    {
+        if (d.Count == 0) return "—";
+
+        var partes = d.Select(kvp => $"{kvp.Key}: {kvp.Value}");
+        return string.Join(" | ", partes);
     }
 }
 
 <div class="container-fluid">
 
-    <!-- Cabecera de página -->
     <div class="cb-page-header" style="background: linear-gradient(135deg, #F5A623 0%, #D4881A 100%);">
         <div class="d-flex align-items-center">
             <i class="bi bi-journal-code cb-page-header-icon"></i>
@@ -50,7 +86,6 @@
             </div>
         </div>
         <div class="d-flex gap-2">
-
             <a id="btnExportarPDF"
                href="#"
                class="cb-btn cb-btn-volver"
@@ -60,7 +95,6 @@
         </div>
     </div>
 
-    <!-- Formulario de filtros -->
     <div class="cb-card mb-4">
         <div class="cb-card-body">
             <form method="get" action="@Url.Action("AuditoriaIndex")" class="row g-3" id="filtrosForm">
@@ -116,7 +150,6 @@
         </div>
     </div>
 
-    <!-- Tabla de resultados -->
     <div class="cb-card">
         <div class="cb-card-body">
             <div class="table-responsive">
@@ -138,54 +171,67 @@
                         {
                             @foreach (var item in Model)
                             {
+                                var resAnterior = ResolverJson(
+                                item.valor_anterior,
+                                lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles);
+
+                                var resNuevo = ResolverJson(
+                                item.valor_nuevo,
+                                lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles);
+
+                                var tooltipAnterior = string.Join(" | ",
+                                resAnterior.Select(k => $"{k.Key}: {k.Value}"));
+                                var tooltipNuevo = string.Join(" | ",
+                                resNuevo.Select(k => $"{k.Key}: {k.Value}"));
+
+                                var badgeClass = item.accion switch
+                                {
+                                    "INSERT" => "cb-badge-success",
+                                    "UPDATE" => "cb-badge-warning",
+                                    "DELETE" => "cb-badge-danger",
+                                    _ => "cb-badge-info"
+                                };
+
+                                var nombreUsuario = nombresUsuarios.TryGetValue(item.usuarioid, out var nu)
+                                ? nu : $"ID:{item.usuarioid}";
+
                                 <tr>
                                     <td>@item.auditoriaid</td>
                                     <td>@item.tabla_afectada</td>
                                     <td>@item.registroid</td>
                                     <td>
-                                        @{
-                                            var badgeClass = item.accion switch
-                                            {
-                                                "INSERT" => "cb-badge-success",
-                                                "UPDATE" => "cb-badge-warning",
-                                                "DELETE" => "cb-badge-danger",
-                                                _ => "cb-badge-info"
-                                            };
-                                        }
                                         <span class="cb-badge @badgeClass">@item.accion</span>
                                     </td>
-                                    <td>
-                                        @if (!string.IsNullOrEmpty(item.valor_anterior))
+
+                                    <td style="min-width: 280px; white-space: normal; word-break: break-word; font-size: 0.82rem;">
+                                        @if (resAnterior.Count > 0)
                                         {
-                                            <span data-bs-toggle="tooltip" title="@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(item.valor_anterior)">
-                                                @FormatearJson(item.valor_anterior)
-                                            </span>
+                                            foreach (var kvp in resAnterior)
+                                            {
+                                                <div><strong>@kvp.Key:</strong> @kvp.Value</div>
+                                            }
                                         }
                                         else
                                         {
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td>
-                                        @if (!string.IsNullOrEmpty(item.valor_nuevo))
+
+                                    <td style="min-width: 280px; white-space: normal; word-break: break-word; font-size: 0.82rem;">
+                                        @if (resNuevo.Count > 0)
                                         {
-                                            <span data-bs-toggle="tooltip" title="@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(item.valor_nuevo)">
-                                                @FormatearJson(item.valor_nuevo)
-                                            </span>
+                                            foreach (var kvp in resNuevo)
+                                            {
+                                                <div><strong>@kvp.Key:</strong> @kvp.Value</div>
+                                            }
                                         }
                                         else
                                         {
                                             <span class="text-muted">—</span>
                                         }
                                     </td>
-                                    <td>
-                                        @{
-                                            var nombreUsuario = ViewBag.NombresUsuarios != null && ViewBag.NombresUsuarios.ContainsKey(item.usuarioid)
-                                            ? ViewBag.NombresUsuarios[item.usuarioid]
-                                            : $"ID:{item.usuarioid}";
-                                        }
-                                        @nombreUsuario
-                                    </td>
+
+                                    <td>@nombreUsuario</td>
                                     <td>@(item.fecha_accion?.ToString("dd/MM/yyyy HH:mm:ss") ?? "")</td>
                                 </tr>
                             }
@@ -207,7 +253,6 @@
 </div>
 
 <style>
-    /* Estilo para el botón volver (igual que en Finanzas) */
     .cb-btn-volver {
         background: rgba(255, 255, 255, 0.15);
         color: #fff;
@@ -225,32 +270,38 @@
         z-index: 10;
     }
 
-        .cb-btn-volver:hover {
-            background: rgba(255, 255, 255, 0.25);
-            border-color: rgba(255, 255, 255, 0.6);
-            transform: translateY(-1px);
-            color: #fff;
-            text-decoration: none;
-        }
+    .cb-btn-volver:hover {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: translateY(-1px);
+        color: #fff;
+        text-decoration: none;
+    }
 
-        .cb-btn-volver:active {
-            transform: translateY(0);
-        }
+    .cb-btn-volver:active {
+        transform: translateY(0);
+    }
 
-        .cb-btn-volver i {
-            pointer-events: none;
-        }
+    .cb-btn-volver i {
+        pointer-events: none;
+    }
+
+    .cb-table td {
+        vertical-align: top;
+    }
+
+    .cb-table tbody tr:hover {
+        background-color: rgba(245, 166, 35, 0.05);
+    }
 </style>
 
 @section Scripts {
     <script>
-        // Inicializar tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl, { trigger: 'hover' });
         });
 
-        // Construir dinámicamente la URL de exportación para evitar parámetros vacíos
         document.getElementById('btnExportarPDF').addEventListener('click', function (e) {
             e.preventDefault();
             var form = document.getElementById('filtrosForm');
@@ -263,30 +314,6 @@
             }
             var url = '@Url.Action("ExportarAuditoriaPDF", "Admin")?' + params.toString();
             window.location.href = url;
-        });
-
-        document.getElementById('btnRespaldo').addEventListener('click', function (e) {
-            e.preventDefault();
-
-            var btn = this;
-            var textoOriginal = '<i class="bi bi-database-fill-down"></i> Respaldar BD';
-
-            // Cambiar a estado "Generando..."
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generando...';
-            btn.style.pointerEvents = 'none'; // Deshabilitar clics mientras genera
-
-            // Crear un iframe oculto para descargar sin redirigir la página
-            var iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = btn.href;
-            document.body.appendChild(iframe);
-
-            // Restaurar el botón después de 4 segundos
-            setTimeout(function () {
-                btn.innerHTML = textoOriginal;
-                btn.style.pointerEvents = 'auto';
-                document.body.removeChild(iframe);
-            }, 2000);
         });
     </script>
 }

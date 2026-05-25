@@ -27,7 +27,6 @@ namespace Coco_Beach.Models
         public DbSet<estado> estado { get; set; }
         public DbSet<recurso> recurso { get; set; }
         public DbSet<reserva> reserva { get; set; }
-        public DbSet<check_in> check_in { get; set; }
         public DbSet<auditoria> auditoria { get; set; }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
