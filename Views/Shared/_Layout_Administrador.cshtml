@@ -1036,9 +1036,23 @@
                 content.style.transition = '';
             }
         }
+                function handleResponsiveSidebar() {
+            const isMobile = window.innerWidth <= 768;
 
-        const savedCollapsed = localStorage.getItem(COLLAPSED_KEY) === 'true';
-        applySidebarState(savedCollapsed, false);
+            if (isMobile) {
+                // En móvil siempre expandido visualmente
+                sidebar.classList.remove('collapsed');
+                content.classList.remove('collapsed');
+            } else {
+                // Restaurar estado guardado en desktop
+                const savedCollapsed =
+                    localStorage.getItem(COLLAPSED_KEY) === 'true';
+
+                applySidebarState(savedCollapsed, false);
+            }
+        }
+
+        handleResponsiveSidebar();
 
         btnCollapse.addEventListener('click', () => {
             const isCollapsed = sidebar.classList.contains('collapsed');
@@ -1114,7 +1128,12 @@
         });
 
         window.addEventListener('resize', () => {
-            if (popup.classList.contains('open')) positionPopup();
+
+            handleResponsiveSidebar();
+
+            if (popup.classList.contains('open')) {
+                positionPopup();
+            }
         });
     </script>
 </body>
