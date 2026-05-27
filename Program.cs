@@ -15,6 +15,7 @@ builder.Services.AddControllersWithViews(options =>
 
 // Configuración de sesión para el login
 builder.Services.AddDistributedMemoryCache();
+builder.Services.AddMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromHours(8); // 8 horas de sesión

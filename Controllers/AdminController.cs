@@ -667,18 +667,15 @@ namespace Coco_Beach.Controllers
         // Método privado para obtener datos de finanzas (excluye reservas CANCELADAS)
         private async Task<dynamic> ObtenerDatosFinanzas(DateTime fechaInicio, DateTime fechaFin)
         {
-            // Convertir a UTC para PostgreSQL
             var fechaInicioUtc = new DateTime(fechaInicio.Year, fechaInicio.Month, fechaInicio.Day, 0, 0, 0, DateTimeKind.Utc);
             var fechaFinUtc = new DateTime(fechaFin.Year, fechaFin.Month, fechaFin.Day, 23, 59, 59, DateTimeKind.Utc);
 
-            // Obtener todas las habitaciones
             var todasLasHabitaciones = await _context.recurso.ToListAsync();
 
-            // Obtener reservas en el rango de fechas
             var reservasEnRango = await _context.reserva
-                .Where(r => r.fecha_inicio.HasValue &&
-                            r.fecha_inicio.Value >= fechaInicioUtc &&
-                            r.fecha_inicio.Value <= fechaFinUtc)
+                .Where(r => r.fecha_fin >= fechaInicioUtc &&   // ← fecha_fin en lugar de fecha_inicio
+                            r.fecha_fin <= fechaFinUtc &&        // ← fecha_fin en lugar de fecha_inicio
+                            r.estadoid != 4)                     // ← excluir canceladas
                 .ToListAsync();
 
             // Agrupar por habitación
