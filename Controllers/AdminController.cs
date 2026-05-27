@@ -1251,12 +1251,15 @@ namespace Coco_Beach.Controllers
             ? $"{empleados[r.empleadoid].nombre} {empleados[r.empleadoid].apellido}".Trim()
             : "—",
                 habitacion = recursos.ContainsKey(r.recursoid) ? recursos[r.recursoid].nombre : $"ID {r.recursoid}",
-                estado = estados.ContainsKey(r.estadoid) ? estados[r.estadoid].nombre : $"ID {r.estadoid}",
+                estado = r.estadoid == 3
+                    ? "Finalizado"
+                    : (estados.ContainsKey(r.estadoid) ? estados[r.estadoid].nombre : $"ID {r.estadoid}"),
                 r.estadoid,
                 fecha_inicio = r.fecha_inicio.HasValue ? r.fecha_inicio.Value.ToString("dd/MM/yyyy HH:mm") : "—",
                 fecha_fin = r.fecha_fin.HasValue ? r.fecha_fin.Value.ToString("dd/MM/yyyy HH:mm") : "—",
                 fecha_creacion = r.fecha_creacion.HasValue ? r.fecha_creacion.Value.ToString("dd/MM/yyyy HH:mm") : "—",
-                preciofinal = r.preciofinal.HasValue ? $"${r.preciofinal.Value:N2}" : "—"
+                preciofinal = r.preciofinal.HasValue ? r.preciofinal.Value : (double?)null,
+                preciofinalTexto = r.preciofinal.HasValue ? $"${r.preciofinal.Value:N2}" : "—"
             }).ToList();
 
             ViewBag.Tipo = tipo;
@@ -1654,10 +1657,10 @@ namespace Coco_Beach.Controllers
 
             // ===== KPIs del MES =====
             var reservasMesQuery = _context.reserva
-                .Where(r => r.fecha_fin.HasValue &&         
+                .Where(r => r.fecha_fin.HasValue &&
                             r.fecha_fin.Value >= inicioMesUtc &&
                             r.fecha_fin.Value <= finMesUtc &&
-                            r.estadoid != 4);              
+                            r.estadoid != 4);
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
             ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal ?? 0);
@@ -1665,10 +1668,10 @@ namespace Coco_Beach.Controllers
             // ===== Ranking de habitaciones =====
             var rankingQuery = from res in _context.reserva
                                join rec in _context.recurso on res.recursoid equals rec.recursoid
-                               where res.fecha_fin.HasValue &&         
+                               where res.fecha_fin.HasValue &&
                                      res.fecha_fin.Value >= inicioMesUtc &&
-                                     res.fecha_fin.Value <= finMesUtc && 
-                                     res.estadoid != 4                 
+                                     res.fecha_fin.Value <= finMesUtc &&
+                                     res.estadoid != 4
                                group res by new { rec.nombre } into grupo
                                select new
                                {
@@ -2134,7 +2137,7 @@ namespace Coco_Beach.Controllers
                 sb.AppendLine("    correo      VARCHAR(50) UNIQUE NOT NULL,");
                 sb.AppendLine("    rolid       INTEGER REFERENCES rol(rolid),");
                 sb.AppendLine("    estado      BOOLEAN,");
-                sb.AppendLine("    telefono    VARCHAR(50)");  
+                sb.AppendLine("    telefono    VARCHAR(50)");
                 sb.AppendLine(");");
                 sb.AppendLine();
 
