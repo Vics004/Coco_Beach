@@ -1613,45 +1613,23 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Encargado")]
         public async Task<IActionResult> Dashboard(int? mes, int? anio)
         {
-            // Fecha actual en UTC
             var hoyUtc = DateTime.UtcNow.Date;
             int mesFiltro = mes ?? hoyUtc.Month;
             int anioFiltro = anio ?? hoyUtc.Year;
 
+            // ✅ Rango completo del mes seleccionado: del 1 al último día
+            var inicioMesUtc = new DateTime(anioFiltro, mesFiltro, 1, 0, 0, 0, DateTimeKind.Utc);
+            var finMesUtc = new DateTime(anioFiltro, mesFiltro,
+                                   DateTime.DaysInMonth(anioFiltro, mesFiltro),
+                                   23, 59, 59, DateTimeKind.Utc);
 
-            // Rango del mes (UTC)
-            var diaActual = DateTime.Now.Day;
-
-            // Fecha inicio dinámica según mes seleccionado
-            var fechaFin = new DateTime(
-                anioFiltro,
-                mesFiltro,
-                Math.Min(diaActual, DateTime.DaysInMonth(anioFiltro, mesFiltro))
-            );
-
-            // Fecha inicio = 1 mes antes
-            var fechaInicio = fechaFin.AddMonths(-1);
-
-            // Rango del día actual (UTC)
+            // Rango del día actual (UTC) — se mantiene igual para el estado de habitaciones
             var inicioHoyUtc = hoyUtc;
             var finHoyUtc = inicioHoyUtc.AddDays(1).AddTicks(-1);
 
-            var inicioMesUtc = new DateTime(
-                fechaInicio.Year,
-                fechaInicio.Month,
-                fechaInicio.Day,
-                0, 0, 0,
-                DateTimeKind.Utc);
-
-            var finMesUtc = new DateTime(
-             fechaFin.Year,
-             fechaFin.Month,
-             fechaFin.Day,
-             23, 59, 59,
-             DateTimeKind.Utc);
-
             ViewBag.FechaInicioDashboard = inicioMesUtc;
             ViewBag.FechaFinDashboard = finMesUtc;
+
 
             // Obtener IDs de estados
             var estados = await _context.estado.ToListAsync();
@@ -1674,22 +1652,23 @@ namespace Coco_Beach.Controllers
             });
             ViewBag.MesesList = new SelectList(meses, "Value", "Text", mesFiltro);
 
-            // ===== KPIs del MES (incluyendo TODOS los estados) =====
+            // ===== KPIs del MES =====
             var reservasMesQuery = _context.reserva
-            .Where(r => r.fecha_inicio.HasValue &&
-               r.fecha_inicio.Value >= inicioMesUtc &&
-               r.fecha_inicio.Value <= finMesUtc);
-            // ❌ Ya no filtramos por estado (antes estaba && r.estadoid != idDisponible)
+                .Where(r => r.fecha_fin.HasValue &&         
+                            r.fecha_fin.Value >= inicioMesUtc &&
+                            r.fecha_fin.Value <= finMesUtc &&
+                            r.estadoid != 4);              
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
             ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal ?? 0);
 
-            // ===== Ranking de habitaciones (incluye TODOS los estados) =====
+            // ===== Ranking de habitaciones =====
             var rankingQuery = from res in _context.reserva
                                join rec in _context.recurso on res.recursoid equals rec.recursoid
-                               where res.fecha_inicio.HasValue &&
-                                     res.fecha_inicio.Value >= inicioMesUtc &&
-                                     res.fecha_inicio.Value < finMesUtc
+                               where res.fecha_fin.HasValue &&         
+                                     res.fecha_fin.Value >= inicioMesUtc &&
+                                     res.fecha_fin.Value <= finMesUtc && 
+                                     res.estadoid != 4                 
                                group res by new { rec.nombre } into grupo
                                select new
                                {
