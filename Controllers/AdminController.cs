@@ -642,12 +642,12 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño")]
         public async Task<IActionResult> Finanzas(DateTime? fechaInicio, DateTime? fechaFin)
         {
-            // Establecer fechas por defecto (últimos 30 días)
             if (!fechaInicio.HasValue)
-                fechaInicio = DateTime.Now.AddDays(-30);
+                fechaInicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
             if (!fechaFin.HasValue)
-                fechaFin = DateTime.Now;
+                fechaFin = new DateTime(DateTime.Now.Year, DateTime.Now.Month,
+                    DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
 
             var datosFinanzas = await ObtenerDatosFinanzas(fechaInicio.Value, fechaFin.Value);
             return View(datosFinanzas);
@@ -737,9 +737,11 @@ namespace Coco_Beach.Controllers
         {
             // Validar fechas
             if (fechaInicio == DateTime.MinValue)
-                fechaInicio = DateTime.Now.AddDays(-30);
+                fechaInicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
             if (fechaFin == DateTime.MinValue)
-                fechaFin = DateTime.Now;
+                fechaFin = new DateTime(DateTime.Now.Year, DateTime.Now.Month,
+                    DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
 
             if (fechaInicio > fechaFin)
             {
@@ -831,18 +833,18 @@ namespace Coco_Beach.Controllers
                             {
                                 row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
                                 {
-                                    c.Item().Text($"${totalGanancias:N2}").FontSize(14).Bold();
-                                    c.Item().Text("Ganancias Totales").FontSize(10);
+                                    c.Item().Text($"${totalGanancias:N2}").FontSize(14).Bold().AlignCenter();
+                                    c.Item().Text("Ganancias Estimadas Totales").FontSize(10).AlignCenter();
                                 });
                                 row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
                                 {
-                                    c.Item().Text(totalReservas.ToString()).FontSize(14).Bold();
-                                    c.Item().Text("Reservas Realizadas").FontSize(10);
+                                    c.Item().Text(totalReservas.ToString()).FontSize(14).Bold().AlignCenter();
+                                    c.Item().Text("Reservas Estimadas").FontSize(10).AlignCenter();
                                 });
                                 row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
                                 {
-                                    c.Item().Text(totalHabitaciones.ToString()).FontSize(14).Bold();
-                                    c.Item().Text("Recursos con Reservas").FontSize(10);
+                                    c.Item().Text(totalHabitaciones.ToString()).FontSize(14).Bold().AlignCenter();
+                                    c.Item().Text("Recursos con Reservas Estimadas").FontSize(10).AlignCenter();
                                 });
                             });
 
@@ -851,7 +853,7 @@ namespace Coco_Beach.Controllers
                         // Título tabla detallada
                         col.Item().PaddingBottom(8)
                             .Text("Detalle por Recurso")
-                            .FontSize(12).Bold().Underline();
+                            .FontSize(12).Bold();
 
                         // Tabla detallada
                         col.Item()
