@@ -380,13 +380,16 @@ namespace Coco_Beach.Controllers
 
         // GET
         [AutenticationAttribute.Autenticacion]
-        public async Task<IActionResult> MiPerfil(int id)
+        public async Task<IActionResult> MiPerfil()
         {
-            // Obtener ID del usuario logueado
+            var userId = HttpContext.Session.GetInt32("personaId");
+
+            if (userId == null)
+                return Unauthorized();
 
             var persona = await _context.persona
                 .Include(p => p.rol)
-                .FirstOrDefaultAsync(p => p.personaid == id);
+                .FirstOrDefaultAsync(p => p.personaid == userId);
 
             if (persona == null)
                 return NotFound();
@@ -394,13 +397,15 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
-        // POST
         [AutenticationAttribute.Autenticacion]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MiPerfil(int id, string password)
+        public async Task<IActionResult> MiPerfil(string password)
         {
+            var userId = HttpContext.Session.GetInt32("personaId");
 
+            if (userId == null)
+                return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(password))
             {
@@ -412,7 +417,7 @@ namespace Coco_Beach.Controllers
             }
 
             var persona = await _context.persona
-                .FirstOrDefaultAsync(p => p.personaid == id);
+                .FirstOrDefaultAsync(p => p.personaid == userId);
 
             if (persona == null)
                 return NotFound();
@@ -420,7 +425,7 @@ namespace Coco_Beach.Controllers
             if (ModelState.IsValid)
             {
                 var usuario = await _context.usuario
-                    .FirstOrDefaultAsync(u => u.personaid == id);
+                    .FirstOrDefaultAsync(u => u.personaid == userId);
 
                 if (usuario != null)
                 {

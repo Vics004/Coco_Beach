@@ -118,7 +118,25 @@
 
                     <div class="col-md-6" id="passwordSection">
                         <label class="cb-label">Contraseña</label>
-                        <input type="password" name="password" id="passwordInput" class="cb-form-control" placeholder="••••••••••" />
+                        <div class="cb-password-wrapper">
+
+                            <input type="password"
+                                   name="password"
+                                   id="passwordInput"
+                                   class="cb-form-control cb-password-input"
+                                   placeholder="••••••••••" />
+
+                            <button type="button"
+                                    id="togglePassword"
+                                    class="cb-password-toggle">
+
+                                <i class="bi bi-eye-fill"></i>
+
+                            </button>
+
+                        </div>
+
+                      
                         @Html.ValidationMessage("password", "", new { @class = "text-danger", style = "font-size:12px;" })
                     </div>
 
@@ -299,9 +317,76 @@
             //validarTelefono();
             actualizarTelefonoCompleto();
         });
+                const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('passwordInput');
+
+        togglePassword.addEventListener('click', function () {
+
+            const isPassword = passwordInput.type === 'password';
+
+            passwordInput.type = isPassword ? 'text' : 'password';
+
+            this.innerHTML = isPassword
+                ? '<i class="bi bi-eye-slash-fill"></i>'
+                : '<i class="bi bi-eye-fill"></i>';
+        });
     </script>
 }
 <style>
+    .cb-password-wrapper {
+        position: relative;
+    }
+
+    .cb-password-input {
+        padding-right: 45px !important;
+    }
+
+    /* Botón del ojo */
+    .cb-password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        color: #6c757d;
+    }
+
+        .cb-password-toggle:hover {
+            color: #495057;
+        }
+
+    /* ELIMINAR iconos nativos del navegador */
+
+    /* Edge */
+    input::-ms-reveal,
+    input::-ms-clear {
+        display: none;
+    }
+
+    /* Chrome */
+    input[type="password"]::-webkit-credentials-auto-fill-button,
+    input[type="password"]::-webkit-textfield-decoration-container {
+        display: none !important;
+    }
+
+    /* Safari */
+    input[type="password"]::-webkit-password-toggle-button {
+        display: none;
+    }
+
+    /* General */
+    input[type="password"] {
+        appearance: none;
+        -webkit-appearance: none;
+    }
     /* Botón Volver - mismo estilo que Nuevo Usuario */
     .cb-btn-volver {
         background: rgba(255, 255, 255, 0.15);
