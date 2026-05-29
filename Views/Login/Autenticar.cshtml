@@ -3,7 +3,6 @@
     ViewData["Title"] = "Iniciar Sesión - CocoBeach";
 }
 
-<!-- Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 
@@ -37,7 +36,6 @@
         overflow: hidden;
     }
 
-    /* Burbujas decorativas de fondo */
     .bg-bubble {
         position: absolute;
         border-radius: 50%;
@@ -67,7 +65,6 @@
             background: rgba(255,255,255,0.03);
         }
 
-    /* Wrapper central */
     .login-wrapper {
         position: relative;
         z-index: 1;
@@ -80,42 +77,14 @@
         margin: 0 auto;
     }
 
-    /* Brand */
-    .login-brand {
+    .login-brand1 {
         text-align: center;
-        margin-bottom: 32px;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
-    .login-brand-icon {
-        font-size: 48px;
-        line-height: 1;
-        margin-bottom: 12px;
-        display: block;
-    }
-
-    .login-brand-name {
-        font-family: var(--font-heading);
-        font-size: 36px;
-        font-weight: 800;
-        color: #FFFFFF;
-        letter-spacing: -0.5px;
-        line-height: 1;
-    }
-
-        .login-brand-name span {
-            color: var(--cb-accent);
-        }
-
-    .login-brand-sub {
-        font-size: 12px;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: rgba(255,255,255,0.55);
-        margin-top: 6px;
-        font-family: var(--font-body);
-    }
-
-    /* Card del formulario */
     .login-card {
         background: #FFFFFF;
         border-radius: 20px;
@@ -126,7 +95,6 @@
         overflow: hidden;
     }
 
-        /* Barra de acento superior */
         .login-card::before {
             content: '';
             position: absolute;
@@ -151,7 +119,6 @@
         margin-bottom: 28px;
     }
 
-    /* Campos */
     .cb-field {
         margin-bottom: 20px;
     }
@@ -179,6 +146,28 @@
         pointer-events: none;
     }
 
+    /* ── Botón de mostrar/ocultar contraseña ── */
+    .cb-toggle-pass {
+        position: absolute;
+        right: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        color: var(--cb-text-muted);
+        font-size: 16px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        transition: color 0.2s;
+    }
+
+        .cb-toggle-pass:hover {
+            color: var(--cb-primary);
+        }
+
     .cb-form-control {
         width: 100%;
         border: 1.5px solid var(--cb-border);
@@ -191,10 +180,14 @@
         transition: border-color 0.2s, box-shadow 0.2s;
         outline: none;
     }
+        /* Padding derecho extra cuando hay botón de toggle */
+        .cb-form-control.has-toggle {
+            padding-right: 42px;
+        }
 
         .cb-form-control:focus {
             border-color: var(--cb-primary);
-            box-shadow: 0 0 0 3px rgba(41, 182, 210, 0.15);
+            box-shadow: 0 0 0 3px rgba(41,182,210,0.15);
             background: #FFFFFF;
         }
 
@@ -202,7 +195,6 @@
             color: #B5CDD4;
         }
 
-    /* Botón principal */
     .cb-btn-login {
         width: 100%;
         padding: 13px;
@@ -223,20 +215,49 @@
         letter-spacing: 0.3px;
     }
 
-        .cb-btn-login:hover {
+        .cb-btn-login:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 8px 24px rgba(41, 182, 210, 0.40);
+            box-shadow: 0 8px 24px rgba(41,182,210,0.40);
         }
 
-        .cb-btn-login:active {
-            transform: translateY(0);
+        .cb-btn-login:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
-    /* Error */
+    /* ── Mensaje de error ── */
     .cb-error {
         background: #FCE8EA;
         color: #8B2030;
         border-left: 4px solid var(--cb-danger);
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 13px;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 20px;
+    }
+
+        .cb-error i {
+            margin-top: 1px;
+            flex-shrink: 0;
+        }
+
+    /* ── Countdown timer cuando está bloqueado ── */
+    .cb-countdown {
+        font-weight: 700;
+        font-size: 13px;
+        margin-top: 6px;
+        color: var(--cb-danger);
+        display: block;
+    }
+
+    /* ── Advertencia de intentos restantes ── */
+    .cb-warn {
+        background: #FFF4E0;
+        color: #7A4B00;
+        border-left: 4px solid var(--cb-accent);
         border-radius: 10px;
         padding: 12px 16px;
         font-size: 13px;
@@ -246,85 +267,206 @@
         margin-top: 20px;
     }
 
-    /* Footer note */
     .login-footer {
         margin-top: 20px;
         text-align: center;
         font-size: 12px;
         color: rgba(255,255,255,0.40);
     }
+
+    /* Ocultar el botón nativo de revelar contraseña del navegador */
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear,
+    input[type="password"]::-webkit-contacts-auto-fill-button,
+    input[type="password"]::-webkit-credentials-auto-fill-button {
+        display: none !important;
+        visibility: hidden;
+        pointer-events: none;
+    }
 </style>
 
-<!-- Burbujas de fondo -->
 <div class="bg-bubble"></div>
 <div class="bg-bubble"></div>
 <div class="bg-bubble"></div>
 
 <div class="login-wrapper">
 
-    <!-- Brand -->
-    <div class="login-brand">
-        <span class="login-brand-icon">🌴</span>
-        <div class="login-brand-name">Coco<span>Beach</span></div>
-        <div class="login-brand-sub">Hotel &amp; Rancho</div>
+    <div class="login-brand1">
+        <img src="~/images/logo2 grupo morales texto completo.png"
+             alt="CocoBeach - Hotel & Rancho"
+             style="max-width:150px; width:100%; height:auto;
+                    filter:brightness(0) invert(1);
+                    drop-shadow(0 4px 12px rgba(0,0,0,0.3));" />
     </div>
 
-    <!-- Card -->
     <div class="login-card">
         <div class="login-card-title">Bienvenido de vuelta</div>
-        <div class="login-card-sub">Acceso exclusivo para personal autorizado</div>
+
+        @{
+            bool bloqueado = ViewData["EstaBlockeado"] as bool? == true;
+        }
 
         <form method="post">
+
             <div class="cb-field">
-                <label class="cb-label" for="txtUsuario">
-                    Correo Electrónico
-                </label>
+                <label class="cb-label" for="txtUsuario">Correo Electrónico</label>
                 <div class="cb-input-wrap">
                     <i class="bi bi-envelope cb-input-icon"></i>
-                    @Html.TextBox("txtUsuario", "", new
-                        {
-                            @class = "cb-form-control",
-                            placeholder = "ejemplo@correo.com",
-                            type = "email",
-                            required = "required",
-                            id = "txtUsuario"
-                        })
+                    @if (bloqueado)
+                    {
+                        @Html.TextBox("txtUsuario", "", new
+                            {
+                                @class = "cb-form-control",
+                                placeholder = "ejemplo@correo.com",
+                                type = "email",
+                                id = "txtUsuario",
+                                disabled = "disabled"
+                            })
+                    }
+                    else
+                    {
+                        @Html.TextBox("txtUsuario", "", new
+                            {
+                                @class = "cb-form-control",
+                                placeholder = "ejemplo@correo.com",
+                                type = "email",
+                                required = "required",
+                                id = "txtUsuario"
+                            })
+                    }
                 </div>
             </div>
 
             <div class="cb-field">
-                <label class="cb-label" for="txtClave">
-                    Contraseña
-                </label>
+                <label class="cb-label" for="txtClave">Contraseña</label>
                 <div class="cb-input-wrap">
                     <i class="bi bi-lock cb-input-icon"></i>
-                    @Html.Password("txtClave", "", new
-                        {
-                            @class = "cb-form-control",
-                            placeholder = "••••••••••",
-                            required = "required",
-                            id = "txtClave"
-                        })
+                    @if (bloqueado)
+                    {
+                        @Html.Password("txtClave", "", new
+                            {
+                                @class = "cb-form-control has-toggle",
+                                placeholder = "••••••••••",
+                                id = "txtClave",
+                                disabled = "disabled"
+                            })
+                    }
+                    else
+                    {
+                        @Html.Password("txtClave", "", new
+                            {
+                                @class = "cb-form-control has-toggle",
+                                placeholder = "••••••••••",
+                                required = "required",
+                                id = "txtClave"
+                            })
+                    }
+                    <button type="button"
+                            class="cb-toggle-pass"
+                            id="btnTogglePass"
+                            aria-label="Mostrar/ocultar contraseña"
+                            tabindex="-1">
+                        <i class="bi bi-eye" id="iconoOjo"></i>
+                    </button>
                 </div>
             </div>
 
-            <button type="submit" class="cb-btn-login">
-                <i class="bi bi-box-arrow-in-right"></i>
-                Iniciar Sesión
-            </button>
+            @if (bloqueado)
+            {
+                <button type="submit" class="cb-btn-login" disabled>
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Iniciar Sesión
+                </button>
+            }
+            else
+            {
+                <button type="submit" class="cb-btn-login">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Iniciar Sesión
+                </button>
+            }
         </form>
 
-        @if (!string.IsNullOrEmpty(ViewData["ErrorMessage"]?.ToString()))
+        @{
+            var errorMsg = ViewData["ErrorMessage"]?.ToString();
+        }
+
+        @if (!string.IsNullOrEmpty(errorMsg))
         {
-            <div class="cb-error">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                @ViewData["ErrorMessage"]
-            </div>
+            if (bloqueado)
+            {
+                <!-- Error de bloqueo con cuenta regresiva -->
+                <div class="cb-error" id="bloqueadoMsg" data-desbloquea="@ViewData["DesbloqueaEn"]">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    <div>
+                        <div>@errorMsg</div>
+                        <span class="cb-countdown" id="countdownTimer"></span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Error de credenciales con advertencia de intentos -->
+                <div class="cb-error">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    @errorMsg
+                </div>
+            }
         }
     </div>
 
     <div class="login-footer">
         © @DateTime.Now.Year CocoBeach — Sistema de Gestión
     </div>
-
 </div>
+
+<script>
+
+    (function () {
+        const btn   = document.getElementById('btnTogglePass');
+        const input = document.getElementById('txtClave');
+        const icon  = document.getElementById('iconoOjo');
+
+        if (!btn || !input) return;
+
+        btn.addEventListener('click', function () {
+            const esPassword = input.type === 'password';
+            input.type       = esPassword ? 'text' : 'password';
+            icon.className   = esPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+    })();
+
+
+    (function () {
+        const el = document.getElementById('countdownTimer');
+        const div = document.getElementById('bloqueadoMsg');
+        if (!el || !div) return;
+
+        // Leer el timestamp exacto desde el servidor (milisegundos UTC)
+        const desbloqueaEn = parseInt(div.getAttribute('data-desbloquea'), 10);
+        if (!desbloqueaEn || isNaN(desbloqueaEn)) return;
+
+        function actualizar() {
+            const ahora = Date.now();
+            const restante = desbloqueaEn - ahora;
+
+            if (restante <= 0) {
+                el.textContent = 'Tiempo cumplido. Redirigiendo...';
+                el.style.color = '#1A8FA8';
+                setTimeout(function () {
+                    window.location.href = window.location.pathname;
+                }, 1500);
+                return;
+            }
+
+            const totalSeg = Math.ceil(restante / 1000);
+            const m = Math.floor(totalSeg / 60);
+            const s = totalSeg % 60;
+            el.textContent = `Tiempo restante: ${m}m ${String(s).padStart(2, '0')}s`;
+
+            setTimeout(actualizar, 1000);
+        }
+
+        actualizar();
+    })();
+</script>

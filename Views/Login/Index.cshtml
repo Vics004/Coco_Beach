@@ -3,86 +3,59 @@
     ViewData["Title"] = "Panel Principal - Coco Beach";
 }
 
-<div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm border-0 rounded-3">
-                <div class="card-body p-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="bi bi-person-circle text-white" style="font-size: 4rem;"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h2 class="text-white mb-1">¡Bienvenido, @ViewBag.nombre @ViewBag.apellido!</h2>
-                            <p class="text-white-50 mb-0">
-                                <i class="bi bi-briefcase-fill"></i>
-                                <span class="badge bg-warning text-dark p-2">@ViewBag.rol</span>
-                            </p>
-                        </div>
-                        <div>
-                            <a href="@Url.Action("Logout", "Login")" class="btn btn-light">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
-                            </a>
-                        </div>
-                    </div>
-                </div>
+<!-- Este contenido irá dentro de .cb-content (el Layout ya lo provee) -->
+<div>
+    <!-- CABECERA DE PÁGINA con gradiente celeste tropical -->
+    <div class="cb-page-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-person-circle cb-page-header-icon"></i>
+            <div>
+                <h2>¡Bienvenido, @ViewBag.nombre @ViewBag.apellido!</h2>
+                <p>
+                    <i class="bi bi-briefcase-fill me-1"></i>
+                    <span class="cb-badge cb-badge-info">@ViewBag.rol</span>
+                </p>
             </div>
         </div>
     </div>
 
-    <!-- Aquí irá el contenido específico de cada rol -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h4>Panel de Control</h4>
-                    <p>Bienvenido al sistema de gestión de Coco Beach. Selecciona una opción del menú para comenzar.</p>
+    <!-- PANEL DE CONTROL (tarjeta principal) -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+            <h4>Panel de Control</h4>
+            <p>Bienvenido al sistema de gestión de Coco Beach. Selecciona una opción del menú para comenzar.</p>
 
-                    @switch (ViewBag.rol)
-                    {
-                        case "Administrador":
-							Layout = "~/Views/Shared/_Layout_Administrador.cshtml";
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> Tienes acceso completo al sistema.
-                            </div>
-                            <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                                <ul class="navbar-nav flex-grow-1">
-                                    <li class="nav-item">
-                                        <a class="btn btn-primary" asp-area="" asp-controller="Admin" asp-action="UsuarioIndex">Gestión de Usuarios</a>
-                                    </li>
-                                </ul>
-                            </div>
-                            break;
-                        case "Dueño":
-							Layout = "~/Views/Shared/_Layout_Dueño.cshtml";
-                            <div class="alert alert-success">
-                                <i class="bi bi-graph-up"></i> Puedes ver reportes y estadísticas.
-                            </div>
-                            break;
-                        case "Gerente de Hotel":
-							Layout = "~/Views/Shared/_Layout_GerenteHotel.cshtml";
-                            <div class="alert alert-primary">
-                                <i class="bi bi-building"></i> Gestión de habitaciones y reservas.
-                            </div>
-                            break;
-                        case "Gerente de Rancho":
-							Layout = "~/Views/Shared/_Layout_GerenteRancho.cshtml";
-                            <div class="alert alert-warning">
-                                <i class="bi bi-tree"></i> Gestión de cabañas y actividades.
-                            </div>
-                            break;
-                        case "Encargado":
-							Layout = "~/Views/Shared/_Layout_Encargado.cshtml";
-                            <div class="alert alert-secondary">
-                                <i class="bi bi-clipboard-check"></i> Gestión de check-ins y check-outs.
-                            </div>
-                            break;
-                    }
-                </div>
-            </div>
+            @switch (ViewBag.rol)
+            {
+                case "Administrador":
+                    <div class="cb-alert cb-alert-info mt-3">
+                        <i class="bi bi-info-circle-fill"></i> Tienes acceso completo al sistema.
+                    </div>
+                    break;
+                case "Dueño":
+                    <div class="cb-alert cb-alert-info mt-3">
+                        <i class="bi bi-graph-up"></i> Puedes ver reportes y estadísticas.
+                    </div>
+                    break;
+                case "Gerente de Hotel":
+                    <div class="cb-alert cb-alert-info mt-3">
+                        <i class="bi bi-building"></i> Gestión de habitaciones y reservas.
+                    </div>
+                    break;
+                case "Gerente de Rancho":
+                    <div class="cb-alert cb-alert-info mt-3">
+                        <i class="bi bi-tree"></i> Gestión de cabañas y actividades.
+                    </div>
+                    break;
+                case "Encargado":
+                    <div class="cb-alert cb-alert-info mt-3">
+                        <i class="bi bi-clipboard-check"></i> Gestión de check-ins y check-outs.
+                    </div>
+                    break;
+            }
         </div>
     </div>
 </div>
 
-<!-- Bootstrap Icons -->
+<!-- Bootstrap Igons (ya deberían estar en el Layout, pero se mantienen por si acaso) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">

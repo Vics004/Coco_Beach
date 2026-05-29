@@ -1,0 +1,277 @@
+﻿@{
+    var tipo = ViewBag.Tipo as string ?? "hotel";
+    var titulo = tipo == "rancho" ? "Reservas — Rancho" : "Reservas — Hotel";
+    var gradiente = tipo == "rancho"
+        ? "linear-gradient(135deg, #2ECC9A 0%, #1A8C6E 100%)"
+        : "linear-gradient(135deg, #29B6D2 0%, #1A6FA8 100%)";
+    ViewData["Title"] = titulo;
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<link rel="stylesheet" href="~/css/cocobeach.css" />
+
+<div class="container-fluid px-0">
+
+    <div class="cb-page-header" style="background: @gradiente; margin-bottom:0; border-radius:0;">
+        <div class="d-flex align-items-center gap-3">
+            <div>
+                <h2 class="mb-0">@titulo</h2>
+                <p class="mb-0 d-none d-sm-block">Listado completo de reservas</p>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="/Admin/@(tipo == "rancho" ? "CalendarioRancho" : "CalendarioHotel")"
+               class="cb-btn cb-btn-volver" style="color:#fff; border-color:rgba(255,255,255,0.5);">
+                <i class="bi bi-calendar3"></i> <span class="d-none d-sm-inline">Volver al calendario</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="p-3">
+
+        <!-- Buscador -->
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <div style="position:relative; flex:1; min-width:200px;">
+                <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--cb-text-muted);"></i>
+                <input type="text" id="buscadorTabla" class="cb-form-control" style="padding-left:32px;"
+                       placeholder="Buscar por huésped, habitación, estado..." />
+            </div>
+            <select id="filtroEstadoTabla" class="cb-form-control" style="max-width:180px;">
+                <option value="">Todos los estados</option>
+                <option value="Reservado">Reservado</option>
+                <option value="En proceso">En proceso</option>
+                <option value="Finalizado">Finalizado</option>
+                <option value="Cancelado">Cancelado</option>
+            </select>
+            <div class="d-flex align-items-center gap-1" style="flex-wrap:nowrap;">
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;font-weight:700;color:var(--cb-text-muted);text-transform:uppercase;letter-spacing:0.04em;line-height:1;">Entrada desde</label>
+                    <input type="date" id="filtroFechaDesde" class="cb-form-control" style="max-width:155px;" title="Fecha de entrada desde" />
+                </div>
+                <span style="color:var(--cb-text-muted); font-size:13px; margin-top:14px;">→</span>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;font-weight:700;color:var(--cb-text-muted);text-transform:uppercase;letter-spacing:0.04em;line-height:1;">Entrada hasta</label>
+                    <input type="date" id="filtroFechaHasta" class="cb-form-control" style="max-width:155px;" title="Fecha de entrada hasta" />
+                </div>
+                <button id="btnLimpiarFechas" class="cb-btn cb-btn-outline" style="padding:6px 10px; font-size:12px; white-space:nowrap; margin-top:14px;" title="Limpiar fechas">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <span id="contadorFilas" style="font-size:13px;color:var(--cb-text-muted);white-space:nowrap;"></span>
+        </div>
+
+        <!-- Tabla -->
+        <div style="overflow-x:auto; border-radius:12px; border:1px solid var(--cb-border);">
+            <table class="table table-hover mb-0" id="tablaReservas" style="min-width:900px; font-size:13px;">
+                <thead>
+                    <tr style="background:var(--cb-surface);">
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('reservaid')">
+                            # <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('cliente')">
+                            Huésped <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('habitacion')">
+                            Habitación <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('estado')">
+                            Estado <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('fecha_inicio')">
+                            Entrada <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('fecha_fin')">
+                            Salida <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('preciofinal')">
+                            Precio <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap;">Empleado</th>
+                        <th class="px-3 py-2" style="white-space:nowrap; cursor:pointer;" onclick="ordenarPor('fecha_creacion')">
+                            Creada <i class="bi bi-arrow-down-up text-muted" style="font-size:10px;"></i>
+                        </th>
+                        <th class="px-3 py-2" style="white-space:nowrap;">Comentario</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyReservas"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    #tablaReservas th {
+        color: var(--cb-text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-bottom: 2px solid var(--cb-border);
+    }
+
+    #tablaReservas td {
+        vertical-align: middle;
+        border-bottom: 1px solid var(--cb-border);
+        color: var(--cb-text-main);
+    }
+
+    #tablaReservas tbody tr:hover td {
+        background: var(--cb-primary-pale);
+    }
+
+    .badge-estado {
+        display: inline-block;
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .badge-1 {
+        background: var(--cb-primary-pale);
+        color: var(--cb-primary-dark);
+    }
+
+    .badge-2 {
+        background: #FFF4E0;
+        color: #A36B00;
+    }
+
+    .badge-3 {
+        background: #E3F9F3;
+        color: #1A8C6E;
+    }
+
+    .badge-4 {
+        background: #FFF0F0;
+        color: #C0392B;
+    }
+</style>
+
+<script>
+    const FILAS_RAW = @Html.Raw(ViewBag.FilasJson);
+    let filas = [...FILAS_RAW];
+    let ordenActual = { campo: 'reservaid', asc: false };
+
+    function renderTabla(data) {
+        const tbody = document.getElementById('tbodyReservas');
+        const contador = document.getElementById('contadorFilas');
+        tbody.innerHTML = '';
+        if (contador) contador.textContent = `${data.length} reserva${data.length !== 1 ? 's' : ''}`;
+
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4" style="color:var(--cb-text-muted);">No hay reservas que mostrar.</td></tr>`;
+            return;
+        }
+
+        data.forEach(r => {
+            const tr = document.createElement('tr');
+            const comentarioHtml = r.comentario
+                ? `<span title="${r.comentario.replace(/"/g,'&quot;')}" style="max-width:160px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--cb-text-muted);font-style:italic;">${r.comentario}</span>`
+                : '<span style="color:#ccc;">—</span>';
+            tr.innerHTML = `
+                <td class="px-3 py-2" style="font-weight:700; color:var(--cb-primary);">#${r.reservaid}</td>
+                <td class="px-3 py-2">${r.cliente}</td>
+                <td class="px-3 py-2">${r.habitacion}</td>
+                <td class="px-3 py-2"><span class="badge-estado badge-${r.estadoid}">${r.estado}</span></td>
+                <td class="px-3 py-2" style="white-space:nowrap;">${r.fecha_inicio}</td>
+                <td class="px-3 py-2" style="white-space:nowrap;">${r.fecha_fin}</td>
+                <td class="px-3 py-2" style="font-weight:600;">${r.preciofinalTexto ?? '—'}</td>
+                <td class="px-3 py-2" style="color:var(--cb-text-muted);">${r.empleado}</td>
+                <td class="px-3 py-2" style="white-space:nowrap; color:var(--cb-text-muted);">${r.fecha_creacion}</td>
+                <td class="px-3 py-2">${comentarioHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function parseFechaFila(str) {
+        // Las fechas vienen como "dd/MM/yyyy HH:mm" desde el servidor
+        if (!str || str === '—') return null;
+        const partes = str.trim().split(' ');
+        const [d, m, y] = partes[0].split('/');
+        const [hh, mm] = partes[1] ? partes[1].split(':') : ['0', '0'];
+        return new Date(y, m - 1, d, hh, mm);
+    }
+
+    const CAMPOS_NUMERICOS = new Set(['reservaid', 'preciofinal']);
+    const CAMPOS_FECHA = new Set(['fecha_inicio', 'fecha_fin', 'fecha_creacion']);
+
+    function filtrar() {
+        const q = (document.getElementById('buscadorTabla')?.value ?? '').toLowerCase().trim();
+        const estado = (document.getElementById('filtroEstadoTabla')?.value ?? '').toLowerCase();
+        const desdeStr = document.getElementById('filtroFechaDesde')?.value;
+        const hastaStr = document.getElementById('filtroFechaHasta')?.value;
+        const desde = desdeStr ? new Date(desdeStr + 'T00:00:00') : null;
+        const hasta = hastaStr ? new Date(hastaStr + 'T23:59:59') : null;
+
+        let data = filas.filter(r => {
+            const texto = `${r.cliente} ${r.habitacion} ${r.estado} ${r.empleado} ${r.comentario ?? ''}`.toLowerCase();
+            const pasaBusqueda = !q || texto.includes(q);
+            const pasaEstado = !estado || r.estado.toLowerCase().includes(estado);
+
+            const fechaEntrada = parseFechaFila(r.fecha_inicio);
+            const pasaDesde = !desde || (fechaEntrada && fechaEntrada >= desde);
+            const pasaHasta = !hasta || (fechaEntrada && fechaEntrada <= hasta);
+
+            return pasaBusqueda && pasaEstado && pasaDesde && pasaHasta;
+        });
+        ordenarDatos(data);
+    }
+
+    function ordenarPor(campo) {
+        if (ordenActual.campo === campo) {
+            ordenActual.asc = !ordenActual.asc;
+        } else {
+            ordenActual = { campo, asc: true };
+        }
+        filtrar();
+    }
+
+    function ordenarDatos(data) {
+        const { campo, asc } = ordenActual;
+        data.sort((a, b) => {
+            let va, vb;
+
+            if (CAMPOS_NUMERICOS.has(campo)) {
+                // Numérico: preciofinal viene como número crudo (o null), reservaid como entero
+                va = a[campo] != null ? Number(a[campo]) : -Infinity;
+                vb = b[campo] != null ? Number(b[campo]) : -Infinity;
+            } else if (CAMPOS_FECHA.has(campo)) {
+                // Fechas: parsear "dd/MM/yyyy HH:mm"
+                va = parseFechaFila(a[campo])?.getTime() ?? -Infinity;
+                vb = parseFechaFila(b[campo])?.getTime() ?? -Infinity;
+            } else {
+                // Texto: comparación locale-aware, insensible a mayúsculas
+                va = (a[campo] ?? '').toString().toLowerCase();
+                vb = (b[campo] ?? '').toString().toLowerCase();
+                const cmp = va.localeCompare(vb, 'es', { sensitivity: 'base' });
+                return asc ? cmp : -cmp;
+            }
+
+            if (va < vb) return asc ? -1 : 1;
+            if (va > vb) return asc ? 1 : -1;
+            return 0;
+        });
+        renderTabla(data);
+    }
+
+    document.getElementById('buscadorTabla')?.addEventListener('input', filtrar);
+    document.getElementById('filtroEstadoTabla')?.addEventListener('change', filtrar);
+    document.getElementById('filtroFechaDesde')?.addEventListener('change', filtrar);
+    document.getElementById('filtroFechaHasta')?.addEventListener('change', filtrar);
+    document.getElementById('btnLimpiarFechas')?.addEventListener('click', () => {
+        const desde = document.getElementById('filtroFechaDesde');
+        const hasta = document.getElementById('filtroFechaHasta');
+        if (desde) desde.value = '';
+        if (hasta) hasta.value = '';
+        filtrar();
+    });
+
+    // Carga inicial
+    filtrar();
+</script>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

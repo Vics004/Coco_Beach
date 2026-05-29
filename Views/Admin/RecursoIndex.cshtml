@@ -1,0 +1,189 @@
+﻿@model IEnumerable<Coco_Beach.Models.recurso>
+
+@{
+    ViewData["Title"] = "Gestión de Recursos";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
+}
+
+<div class="container-fluid">
+
+    <!-- Cabecera de página -->
+    <div class="cb-page-header">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-door-closed-fill cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Administra las habitaciones, suites y espacios del hotel</p>
+            </div>
+        </div>
+        <a asp-action="RecursoCreate" class="cb-btn cb-btn-header">
+            <i class="bi bi-plus-lg"></i> Nuevo Recurso
+        </a>
+    </div>
+
+    <!-- Mensaje de éxito -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="cb-alert cb-alert-info mb-4">
+            <i class="bi bi-check-circle-fill"></i> @TempData["SuccessMessage"]
+        </div>
+    }
+
+    <!-- Filtros de búsqueda -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-5">
+            <input type="text" id="filtroSearch" class="cb-form-control"
+                   placeholder="Buscar por nombre..." />
+        </div>
+        <div class="col-md-4">
+            <select id="filtroEstado" class="cb-form-control">
+                <option value="">-- Todos los estados --</option>
+                <option value="true">Habilitada</option>
+                <option value="false">No Habilitada</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <a asp-action="RecursoIndex" class="cb-btn cb-btn-outline w-100">
+                <i class="bi bi-x-lg"></i> Limpiar
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabla de recursos -->
+    <div class="cb-card">
+        <div class="cb-card-body">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 style="font-family:var(--font-heading); font-weight:700; color:var(--cb-text-main); margin:0;">
+                    Listado de Espacios
+                </h5>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table cb-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Capacidad</th>
+                            <th>Precio / Noche</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
+                    </thead>
+                    <tbody id="tablaRecursosBody">
+                        <!-- Las filas se generarán dinámicamente con JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .cb-btn-header {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+        .cb-btn-header:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-1px);
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .cb-btn-header:active {
+            transform: translateY(0);
+        }
+
+        .cb-btn-header i {
+            pointer-events: none;
+        }
+</style>
+
+<script>
+    // Datos de recursos enviados desde el controlador
+    const todosLosRecursos = @Html.Raw(ViewBag.RecursosJson);
+    const tbody = document.getElementById('tablaRecursosBody');
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function (m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function renderRecursos(lista) {
+        if (lista.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6"><div class="cb-alert cb-alert-info mt-2"><i class="bi bi-info-circle-fill"></i> No se encontraron recursos.</div></td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = lista.map(r => {
+            // Si está habilitado (libre = true) mostrar botón eliminar; si no, mostrar etiqueta "Deshabilitado"
+            const accionEliminar = r.libre
+                ? `<a href="/Admin/RecursoDelete/${r.recursoid}" class="cb-btn cb-btn-danger btn-sm"><i class="bi bi-trash"></i></a>`
+                : `<span></span>`;
+
+            return `
+                    <tr>
+                        <td><span class="fw-semibold">${r.recursoid}</span></td>
+                        <td><span style="font-weight:600; color:var(--cb-text-main);">${escapeHtml(r.nombre)}</span></td>
+                        <td><span class="badge bg-secondary">${r.capacidad} personas</span></td>
+                        <td><span style="font-weight:600; color:var(--cb-primary);">$${r.precio?.toLocaleString()}</span></td>
+                        <td>
+                            ${r.libre
+                    ? '<span class="cb-badge cb-badge-success">Habilitado</span>'
+                    : '<span class="cb-badge cb-badge-danger">No habilitado</span>'}
+                        </td>
+                            <td class="text-end">
+                            ${accionEliminar}
+                            <a href="/Admin/RecursoEdit/${r.recursoid}" class="cb-btn cb-btn-warning btn-sm ms-1"><i class="bi bi-pencil"></i></a>
+                        </td>
+                    </tr>
+                `;
+        }).join('');
+    }
+
+    function aplicarFiltros() {
+        const texto = document.getElementById('filtroSearch').value.toLowerCase().trim();
+        const estadoFiltro = document.getElementById('filtroEstado').value; // "true", "false" o ""
+
+        const filtrados = todosLosRecursos.filter(r => {
+            const nombreMatch = r.nombre?.toLowerCase().includes(texto) || false;
+            const matchSearch = !texto || nombreMatch;
+            let matchEstado = true;
+            if (estadoFiltro !== '') {
+                const libreBool = r.libre === true;
+                matchEstado = libreBool === (estadoFiltro === 'true');
+            }
+            return matchSearch && matchEstado;
+        });
+
+        renderRecursos(filtrados);
+    }
+
+    // Eventos
+    document.getElementById('filtroSearch').addEventListener('input', aplicarFiltros);
+    document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
+
+    // Render inicial
+    aplicarFiltros();
+</script>

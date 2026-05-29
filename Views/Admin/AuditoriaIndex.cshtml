@@ -1,0 +1,319 @@
+﻿@model IEnumerable<Coco_Beach.Models.auditoria>
+
+@{
+    ViewData["Title"] = "Registro de Auditoría";
+    Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
+
+    var lkPersonas = ViewBag.LkPersonas as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkUsuarios = ViewBag.LkUsuarios as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkRecursos = ViewBag.LkRecursos as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkEstados  = ViewBag.LkEstados  as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var lkRoles    = ViewBag.LkRoles    as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var nombresUsuarios = ViewBag.NombresUsuarios as Dictionary<int, string> ?? new Dictionary<int, string>();
+}
+
+@functions {
+
+    Dictionary<string, string> ResolverJson(
+        string? json,
+        Dictionary<int, string> personas,
+        Dictionary<int, string> usuarios,
+        Dictionary<int, string> recursos,
+        Dictionary<int, string> estados,
+        Dictionary<int, string> roles)
+    {
+        var resultado = new Dictionary<string, string>();
+        if (string.IsNullOrEmpty(json)) return resultado;
+
+        var lookups = new Dictionary<string, Dictionary<int, string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["clienteid"]  = personas,
+            ["empleadoid"] = usuarios,
+            ["usuarioid"]  = usuarios,
+            ["personaid"]  = personas,
+            ["recursoid"]  = recursos,
+            ["estadoid"]   = estados,
+            ["rolid"]      = roles,
+        };
+
+        try
+        {
+            var obj = System.Text.Json.JsonSerializer
+                .Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(json);
+
+            if (obj == null) return resultado;
+
+            foreach (var kvp in obj)
+            {
+                string raw = kvp.Value.ToString() ?? "null";
+
+                if (lookups.TryGetValue(kvp.Key, out var lk) &&
+                    int.TryParse(raw, out int id) &&
+                    lk.TryGetValue(id, out var nombre))
+                {
+                    resultado[kvp.Key] = $"{nombre} (ID:{id})";
+                }
+                else
+                {
+                    resultado[kvp.Key] = raw;
+                }
+            }
+        }
+        catch
+        {
+            resultado["_raw"] = json.Length > 80 ? json[..77] + "…" : json;
+        }
+
+        return resultado;
+    }
+    string Formatear(Dictionary<string, string> d)
+    {
+        if (d.Count == 0) return "—";
+
+        var partes = d.Select(kvp => $"{kvp.Key}: {kvp.Value}");
+        return string.Join(" | ", partes);
+    }
+}
+
+<div class="container-fluid">
+
+    <div class="cb-page-header" style="background: linear-gradient(135deg, #F5A623 0%, #D4881A 100%);">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-journal-code cb-page-header-icon"></i>
+            <div>
+                <h2>@ViewData["Title"]</h2>
+                <p>Historial de cambios en la base de datos</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a id="btnExportarPDF"
+               href="#"
+               class="cb-btn cb-btn-volver"
+               style="background: rgba(255,255,255,0.2);">
+                <i class="bi bi-file-pdf-fill"></i> Exportar PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="cb-card mb-4">
+        <div class="cb-card-body">
+            <form method="get" action="@Url.Action("AuditoriaIndex")" class="row g-3" id="filtrosForm">
+                <div class="col-md-3">
+                    <label class="form-label">Tabla afectada</label>
+                    <select name="tabla" class="cb-form-control">
+                        <option value="">-- Todas --</option>
+                        @foreach (var t in ViewBag.Tablas)
+                        {
+                            <option value="@t" selected="@(ViewBag.TablaSeleccionada == t)">@t</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Acción</label>
+                    <select name="accion" class="cb-form-control">
+                        <option value="">-- Todas --</option>
+                        @foreach (var a in ViewBag.Acciones)
+                        {
+                            <option value="@a" selected="@(ViewBag.AccionSeleccionada == a)">@a</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Usuario</label>
+                    <select name="usuarioId" class="cb-form-control">
+                        <option value="">-- Todos --</option>
+                        @foreach (var u in ViewBag.Usuarios)
+                        {
+                            <option value="@u.usuarioid" selected="@(ViewBag.UsuarioIdSeleccionado == u.usuarioid)">
+                                @u.NombreCompleto
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Desde</label>
+                    <input type="date" name="fechaInicio" value="@ViewBag.FechaInicio" class="cb-form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hasta</label>
+                    <input type="date" name="fechaFin" value="@ViewBag.FechaFin" class="cb-form-control" />
+                </div>
+                <div class="col-md-12 d-flex justify-content-end gap-2">
+                    <button type="submit" class="cb-btn cb-btn-primary">
+                        <i class="bi bi-search"></i> Filtrar
+                    </button>
+                    <a href="@Url.Action("AuditoriaIndex")" class="cb-btn cb-btn-outline">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="cb-card">
+        <div class="cb-card-body">
+            <div class="table-responsive">
+                <table class="table cb-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tabla</th>
+                            <th>Registro ID</th>
+                            <th>Acción</th>
+                            <th>Valor Anterior (resumen)</th>
+                            <th>Valor Nuevo (resumen)</th>
+                            <th>Usuario</th>
+                            <th>Fecha Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Any())
+                        {
+                            @foreach (var item in Model)
+                            {
+                                var resAnterior = ResolverJson(
+                                item.valor_anterior,
+                                lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles);
+
+                                var resNuevo = ResolverJson(
+                                item.valor_nuevo,
+                                lkPersonas, lkUsuarios, lkRecursos, lkEstados, lkRoles);
+
+                                var tooltipAnterior = string.Join(" | ",
+                                resAnterior.Select(k => $"{k.Key}: {k.Value}"));
+                                var tooltipNuevo = string.Join(" | ",
+                                resNuevo.Select(k => $"{k.Key}: {k.Value}"));
+
+                                var badgeClass = item.accion switch
+                                {
+                                    "INSERT" => "cb-badge-success",
+                                    "UPDATE" => "cb-badge-warning",
+                                    "DELETE" => "cb-badge-danger",
+                                    _ => "cb-badge-info"
+                                };
+
+                                var nombreUsuario = nombresUsuarios.TryGetValue(item.usuarioid, out var nu)
+                                ? nu : $"ID:{item.usuarioid}";
+
+                                <tr>
+                                    <td>@item.auditoriaid</td>
+                                    <td>@item.tabla_afectada</td>
+                                    <td>@item.registroid</td>
+                                    <td>
+                                        <span class="cb-badge @badgeClass">@item.accion</span>
+                                    </td>
+
+                                    <td style="min-width: 280px; white-space: normal; word-break: break-word; font-size: 0.82rem;">
+                                        @if (resAnterior.Count > 0)
+                                        {
+                                            foreach (var kvp in resAnterior)
+                                            {
+                                                <div><strong>@kvp.Key:</strong> @kvp.Value</div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+
+                                    <td style="min-width: 280px; white-space: normal; word-break: break-word; font-size: 0.82rem;">
+                                        @if (resNuevo.Count > 0)
+                                        {
+                                            foreach (var kvp in resNuevo)
+                                            {
+                                                <div><strong>@kvp.Key:</strong> @kvp.Value</div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+
+                                    <td>@nombreUsuario</td>
+                                    <td>@(item.fecha_accion?.ToString("dd/MM/yyyy HH:mm:ss") ?? "")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                                    <p class="mt-2 mb-0">No se encontraron registros de auditoría con los filtros aplicados.</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cb-btn-volver {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        padding: 0.6rem 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-weight: 600;
+        border-radius: 8px;
+        position: relative;
+        z-index: 10;
+    }
+
+    .cb-btn-volver:hover {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: translateY(-1px);
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .cb-btn-volver:active {
+        transform: translateY(0);
+    }
+
+    .cb-btn-volver i {
+        pointer-events: none;
+    }
+
+    .cb-table td {
+        vertical-align: top;
+    }
+
+    .cb-table tbody tr:hover {
+        background-color: rgba(245, 166, 35, 0.05);
+    }
+</style>
+
+@section Scripts {
+    <script>
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, { trigger: 'hover' });
+        });
+
+        document.getElementById('btnExportarPDF').addEventListener('click', function (e) {
+            e.preventDefault();
+            var form = document.getElementById('filtrosForm');
+            var formData = new FormData(form);
+            var params = new URLSearchParams();
+            for (var pair of formData.entries()) {
+                if (pair[1] !== '') {
+                    params.append(pair[0], pair[1]);
+                }
+            }
+            var url = '@Url.Action("ExportarAuditoriaPDF", "Admin")?' + params.toString();
+            window.location.href = url;
+        });
+    </script>
+}

@@ -14,5 +14,6 @@ namespace Coco_Beach.Models
         public DateTime? fecha_fin { get; set; }
         public DateTime? fecha_creacion { get; set; }
         public double? preciofinal { get; set; }
+        public string? comentario { get; set; }
     }
 }

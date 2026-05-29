@@ -1,13 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using Coco_Beach.Models;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configurar licencia de QuestPDF
+QuestPDF.Settings.License = LicenseType.Community;
+
 // Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<Coco_Beach.Servicios.LayoutInjectorAttribute>();
+});
 
 // Configuración de sesión para el login
 builder.Services.AddDistributedMemoryCache();
+builder.Services.AddMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromHours(8); // 8 horas de sesión
@@ -15,6 +23,9 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.Cookie.Name = ".CocoBeach.Session";
 });
+
+// ?? NUEVO: Registrar IHttpContextAccessor para la auditoría
+builder.Services.AddHttpContextAccessor();
 
 // Configura DbContext
 builder.Services.AddDbContext<Coco_BeachDbContext>(options =>

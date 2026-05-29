@@ -1,4 +1,9 @@
-﻿<!DOCTYPE html>
+﻿@{
+    var nombreUsuario = Context.Session.GetString("nombre");
+    var apellidoUsuario = Context.Session.GetString("apellido");
+    var idpersona = Context.Session.GetInt32("personaId");
+}
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
@@ -8,12 +13,12 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-
+    <link rel="icon" type="image/png" href="~/images/grupo_morales.jpeg" />
     <style>
         /* =============================================
-                           COCOBEACH — SISTEMA DE DISEÑO ESTÁNDAR
-                           Paleta principal: Celeste tropical
-                        ============================================= */
+                                   COCOBEACH — SISTEMA DE DISEÑO ESTÁNDAR
+                                   Paleta principal: Celeste tropical
+                                ============================================= */
 
         :root {
             /* Paleta de color */
@@ -43,6 +48,7 @@
             --font-body: 'Lato', sans-serif;
             /* Sidebar */
             --sidebar-width: 260px;
+            --sidebar-mini-width: 68px;
             /* Sombras */
             --shadow-card: 0 4px 20px rgba(41, 182, 210, 0.10);
             --shadow-hover: 0 8px 28px rgba(41, 182, 210, 0.18);
@@ -59,6 +65,7 @@
             background-color: var(--cb-bg);
             color: var(--cb-text-main);
             min-height: 100vh;
+            visibility: hidden;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -68,8 +75,8 @@
         }
 
         /* =============================================
-                           SIDEBAR
-                        ============================================= */
+                                   SIDEBAR (con capacidad de colapso)
+                                ============================================= */
         .cb-sidebar {
             width: var(--sidebar-width);
             height: 100vh;
@@ -80,12 +87,13 @@
             left: 0;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
             z-index: 100;
             box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+            transition: width 0.28s cubic-bezier(0.4,0,0.2,1);
         }
 
-            /* Decoración olas superior */
             .cb-sidebar::before {
                 content: '';
                 position: absolute;
@@ -96,35 +104,67 @@
                 background: linear-gradient(90deg, var(--cb-primary), var(--cb-accent), var(--cb-primary));
             }
 
-        /* Logo / Brand */
-        .cb-brand {
-            padding: 28px 20px 24px;
-            border-bottom: 1px solid rgba(255,255,255,0.07);
-        }
-
-        .cb-brand-title {
-            font-family: var(--font-heading);
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--cb-white);
-            letter-spacing: 0.5px;
-            line-height: 1.1;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-            .cb-brand-title .brand-icon {
-                width: 36px;
-                height: 36px;
-                background: var(--cb-primary);
-                border-radius: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 18px;
-                flex-shrink: 0;
+            /* ----- ESTADO COLAPSADO ----- */
+            .cb-sidebar.collapsed {
+                width: var(--sidebar-mini-width);
             }
+
+                .cb-sidebar.collapsed .cb-brand img {
+                    width: 36px !important;
+                    margin: 0 auto;
+                }
+
+                .cb-sidebar.collapsed .cb-brand-sub {
+                    display: none;
+                }
+
+                .cb-sidebar.collapsed .cb-user-data {
+                    display: none;
+                }
+
+                .cb-sidebar.collapsed .cb-user-info {
+                    justify-content: center;
+                    padding: 12px 0;
+                }
+
+                .cb-sidebar.collapsed .cb-profile-btn {
+                    margin: 0 auto;
+                }
+
+                .cb-sidebar.collapsed .cb-nav-label,
+                .cb-sidebar.collapsed .cb-menu-item span,
+                .cb-sidebar.collapsed .cb-logout span {
+                    display: none;
+                }
+
+                .cb-sidebar.collapsed .cb-menu-item {
+                    justify-content: center;
+                    padding: 12px 0;
+                }
+
+                    .cb-sidebar.collapsed .cb-menu-item i {
+                        margin: 0;
+                    }
+
+                .cb-sidebar.collapsed .cb-logout {
+                    justify-content: center;
+                    padding: 10px 0;
+                }
+
+                .cb-sidebar.collapsed .cb-collapse-btn {
+                    justify-content: center;
+                }
+
+                .cb-sidebar.collapsed #collapseIcon {
+                    transform: rotate(180deg);
+                }
+
+        /* Brand */
+        .cb-brand {
+            padding: 10px 10px 5px;
+            text-align: center;
+            transition: padding 0.28s;
+        }
 
         .cb-brand-sub {
             font-family: var(--font-body);
@@ -133,10 +173,151 @@
             letter-spacing: 2px;
             text-transform: uppercase;
             margin-top: 4px;
-            padding-left: 46px;
+            text-align: center;
         }
 
-        /* Nav section label */
+        /* ----- USER INFO (en fila: nombre a la izquierda, botón a la derecha) ----- */
+        .cb-user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .cb-user-data {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .cb-user-name {
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cb-user-sub {
+            font-size: 10px;
+            color: var(--cb-primary-light);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Botón de perfil (engranaje) */
+        .cb-profile-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.75);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+            .cb-profile-btn:hover,
+            .cb-profile-btn.active {
+                background: var(--cb-primary);
+                border-color: var(--cb-primary);
+                color: #fff;
+            }
+
+        /* ----- POPUP DE PERFIL ----- */
+        .cb-profile-popup {
+            position: fixed;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(41,182,210,0.12);
+            padding: 6px;
+            min-width: 210px;
+            max-width: calc(100vw - 20px);
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.97);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+            pointer-events: none;
+        }
+
+            .cb-profile-popup.open {
+                opacity: 1;
+                visibility: visible;
+                transform: scale(1);
+                pointer-events: auto;
+            }
+
+        .cb-profile-popup-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: var(--cb-text-main);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+
+            .cb-profile-popup-item i {
+                font-size: 17px;
+                color: var(--cb-primary);
+                width: 20px;
+                text-align: center;
+            }
+
+            .cb-profile-popup-item:hover {
+                background: var(--cb-primary-pale);
+                color: var(--cb-primary-dark);
+                text-decoration: none;
+            }
+
+        .cb-profile-popup-divider {
+            height: 1px;
+            background: var(--cb-border);
+            margin: 4px 8px;
+        }
+
+        /* Botón colapsar */
+        .cb-collapse-btn {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.4);
+            font-size: 13px;
+            padding: 7px 16px;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            flex-shrink: 0;
+        }
+
+            .cb-collapse-btn:hover {
+                color: var(--cb-primary-light);
+                background: rgba(255,255,255,0.04);
+            }
+
+        #collapseIcon {
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        /* Navegación */
         .cb-nav-label {
             font-family: var(--font-body);
             font-size: 10px;
@@ -145,9 +326,10 @@
             text-transform: uppercase;
             color: rgba(255,255,255,0.3);
             padding: 20px 20px 6px;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
-        /* Menu items */
         .cb-nav {
             flex: 1;
             padding: 8px 12px;
@@ -180,7 +362,8 @@
             font-family: var(--font-body);
             font-weight: 400;
             transition: all 0.2s ease;
-            position: relative;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
             .cb-menu-item i {
@@ -201,7 +384,7 @@
                 background-color: var(--cb-primary);
                 color: var(--cb-white);
                 font-weight: 600;
-                box-shadow: 0 4px 14px rgba(41, 182, 210, 0.35);
+                box-shadow: 0 4px 14px rgba(41,182,210,0.35);
             }
 
                 .cb-menu-item.active i {
@@ -225,26 +408,31 @@
             font-size: 14px;
             font-family: var(--font-body);
             transition: all 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
             .cb-logout:hover {
-                background-color: rgba(224, 92, 107, 0.12);
+                background-color: rgba(224,92,107,0.12);
                 color: #E05C6B;
                 text-decoration: none;
             }
 
-        /* =============================================
-                           CONTENIDO PRINCIPAL
-                        ============================================= */
+        /* Contenido principal */
         .cb-content {
             margin-left: var(--sidebar-width);
             padding: 28px 32px;
             min-height: 100vh;
+            transition: margin-left 0.28s cubic-bezier(0.4,0,0.2,1);
         }
 
+            .cb-content.collapsed {
+                margin-left: var(--sidebar-mini-width);
+            }
+
         /* =============================================
-                           COMPONENTES REUTILIZABLES
-                        ============================================= */
+                                   COMPONENTES REUTILIZABLES
+                                ============================================= */
 
         /* Page Header (cabecera de sección) */
         .cb-page-header {
@@ -261,7 +449,6 @@
             overflow: hidden;
         }
 
-            /* Decoración geométrica del header */
             .cb-page-header::after {
                 content: '';
                 position: absolute;
@@ -271,6 +458,7 @@
                 height: 160px;
                 border-radius: 50%;
                 background: rgba(255,255,255,0.08);
+                pointer-events: none; /* 👈 esto */
             }
 
             .cb-page-header::before {
@@ -282,6 +470,7 @@
                 height: 120px;
                 border-radius: 50%;
                 background: rgba(255,255,255,0.05);
+                pointer-events: none; /* 👈 esto */
             }
 
         .cb-page-header-icon {
@@ -360,6 +549,18 @@
             text-decoration: none;
         }
 
+        /* Ya existe en el layout 2 — solo agregar cb-btn-volver */
+        .cb-btn-volver {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            border: 1.5px solid rgba(255,255,255,0.35);
+        }
+
+            .cb-btn-volver:hover {
+                background: rgba(255,255,255,0.25);
+                color: #fff;
+            }
+
         .cb-btn-primary {
             background-color: var(--cb-primary);
             color: var(--cb-white);
@@ -390,7 +591,7 @@
         }
 
             .cb-btn-danger:hover {
-                background-color: rgba(224, 92, 107, 0.08);
+                background-color: rgba(224,92,107,0.08);
             }
 
         .cb-btn-warning {
@@ -400,7 +601,19 @@
         }
 
             .cb-btn-warning:hover {
-                background-color: rgba(245, 166, 35, 0.08);
+                background-color: rgba(245,166,35,0.08);
+            }
+
+        /* ↓ AGREGAR ESTO ↓ */
+        .cb-btn-volver {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            border: 1.5px solid rgba(255,255,255,0.35);
+        }
+
+            .cb-btn-volver:hover {
+                background: rgba(255,255,255,0.25);
+                color: #fff;
             }
 
         /* Badges */
@@ -478,7 +691,7 @@
             .cb-form-control:focus {
                 outline: none;
                 border-color: var(--cb-primary);
-                box-shadow: 0 0 0 3px rgba(41, 182, 210, 0.15);
+                box-shadow: 0 0 0 3px rgba(41,182,210,0.15);
             }
 
         .cb-label {
@@ -531,49 +744,311 @@
                 color: var(--cb-text-muted);
                 margin-top: 4px;
             }
+
+        /* =============================================
+                   RESPONSIVE — SIDEBAR MÓVIL
+                ============================================= */
+
+        .cb-hamburger {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 200;
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 12px;
+            background: var(--cb-sidebar-bg);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .cb-sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 90;
+            backdrop-filter: blur(2px);
+        }
+
+            .cb-sidebar-overlay.activo {
+                display: block;
+            }
+
+        /* En móvil: sidebar deslizable, sin colapso permanente */
+        @@media (max-width: 768px) {
+            .cb-hamburger {
+                display: flex;
+            }
+
+            .cb-sidebar {
+                left: -260px;
+                width: 260px !important;
+                transition: left 0.3s ease;
+            }
+
+                .cb-sidebar.abierto {
+                    left: 0;
+                }
+
+            .cb-content {
+                margin-left: 0 !important;
+                padding: 18px;
+                padding-top: 70px;
+            }
+            /* Forzar mostrar todos los textos en móvil aunque esté collapsed (no aplica) */
+            .cb-sidebar.collapsed {
+                width: 260px !important;
+            }
+
+                .cb-sidebar.collapsed .cb-brand img {
+                    width: 140px !important;
+                }
+
+                .cb-sidebar.collapsed .cb-brand-sub,
+                .cb-sidebar.collapsed .cb-user-data,
+                .cb-sidebar.collapsed .cb-nav-label,
+                .cb-sidebar.collapsed .cb-menu-item span,
+                .cb-sidebar.collapsed .cb-logout span {
+                    display: block !important;
+                }
+
+                .cb-sidebar.collapsed .cb-user-info {
+                    justify-content: space-between;
+                }
+
+                .cb-sidebar.collapsed .cb-menu-item {
+                    justify-content: flex-start !important;
+                    padding: 11px 14px !important;
+                }
+
+                .cb-sidebar.collapsed .cb-logout {
+                    justify-content: flex-start !important;
+                    padding: 10px 14px !important;
+                }
+
+            .cb-collapse-btn {
+                display: none;
+            }
+
+            .cb-profile-popup {
+                min-width: 200px;
+                max-width: 230px;
+            }
+        }
     </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.style.visibility = 'visible';
+        });
+    </script>
 
     @RenderSection("Styles", required: false)
 </head>
 
 <body>
+    <!-- OVERLAY (fondo oscuro al abrir sidebar en móvil) -->
+    <div class="cb-sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- BOTÓN HAMBURGUESA (solo visible en móvil) -->
+    <button class="cb-hamburger" id="btnHamburger" aria-label="Abrir menú">
+        <i class="bi bi-list"></i>
+    </button>
 
     <!-- SIDEBAR -->
-    <div class="cb-sidebar">
+    <div class="cb-sidebar" id="cbSidebar">
         <div class="cb-brand">
-            <div class="cb-brand-title">
-                <div class="brand-icon">🌴</div>
-                CocoBeach
-            </div>
-            <div class="cb-brand-sub">Panel de Administración</div>
+            <img src="~/images/logo2 grupo morales texto completo.png"
+                 alt="CocoBeach"
+                 style="width: 140px; height: auto; filter: brightness(0) invert(1); display: block; margin: 0 auto 6px" />
+            <div class="cb-brand-sub" style="padding-left: 0; text-align: center;">Panel de Administración</div>
         </div>
 
+        <!-- USER INFO CON BOTÓN DE PERFIL (en fila) -->
+        <div class="cb-user-info">
+            <div class="cb-user-data">
+                <div class="cb-user-name">
+                    @nombreUsuario @apellidoUsuario
+                </div>
+                <div class="cb-user-sub">Panel de Administración</div>
+            </div>
+            <button class="cb-profile-btn" id="btnPerfil" aria-label="Opciones de perfil" title="Opciones de perfil">
+                <i class="bi bi-gear"></i>
+            </button>
+        </div>
+
+        <!-- BOTÓN COLAPSAR (solo desktop) -->
+        <button class="cb-collapse-btn" id="btnCollapse" title="Colapsar menú">
+            <i class="bi bi-chevron-double-left" id="collapseIcon"></i>
+        </button>
+
         <div class="cb-nav">
-
-           
-
             <div class="cb-nav-label">Calendario</div>
-
-            <a asp-controller="CalendarioRancho" asp-action="Index" class="cb-menu-item">
+            <a asp-controller="Admin" asp-action="CalendarioRancho" class="cb-menu-item">
                 <i class="bi bi-calendar2-heart"></i>
-                Rancho
+                <span>Rancho</span>
             </a>
         </div>
 
         <div class="cb-logout-area">
             <a asp-controller="Login" asp-action="Logout" class="cb-logout">
                 <i class="bi bi-box-arrow-right"></i>
-                Cerrar Sesión
+                <span>Cerrar Sesión</span>
             </a>
         </div>
     </div>
 
+    <!-- POPUP DE PERFIL -->
+    <div class="cb-profile-popup" id="cbProfilePopup">
+        <a asp-controller="Admin" asp-action="MiPerfil" asp-route-id="@idpersona" class="cb-profile-popup-item">
+            <i class="bi bi-person-gear"></i>
+            <span>Editar Perfil</span>
+        </a>
+        <div class="cb-profile-popup-divider"></div>
+    </div>
+
     <!-- CONTENIDO -->
-    <div class="cb-content">
+    <div class="cb-content" id="cbContent">
         <main role="main">
             @RenderBody()
         </main>
     </div>
+
+    <script>
+        // Elementos
+        const sidebar = document.getElementById('cbSidebar');
+        const content = document.getElementById('cbContent');
+        const overlay = document.getElementById('sidebarOverlay');
+        const hamburger = document.getElementById('btnHamburger');
+        const btnCollapse = document.getElementById('btnCollapse');
+        const btnPerfil = document.getElementById('btnPerfil');
+        const popup = document.getElementById('cbProfilePopup');
+
+        // ----- SIDEBAR MÓVIL (sin cambios) -----
+        function abrirSidebar() {
+            sidebar.classList.add('abierto');
+            overlay.classList.add('activo');
+            hamburger.innerHTML = '<i class="bi bi-x-lg"></i>';
+        }
+        function cerrarSidebar() {
+            sidebar.classList.remove('abierto');
+            overlay.classList.remove('activo');
+            hamburger.innerHTML = '<i class="bi bi-list"></i>';
+        }
+        hamburger.addEventListener('click', () => {
+            sidebar.classList.contains('abierto') ? cerrarSidebar() : abrirSidebar();
+        });
+        overlay.addEventListener('click', cerrarSidebar);
+        document.querySelectorAll('.cb-menu-item').forEach(link => {
+            link.addEventListener('click', cerrarSidebar);
+        });
+
+        // ----- COLAPSO DESKTOP (con localStorage) -----
+        const COLLAPSED_KEY = 'cbSidebarCollapsed';
+        function applySidebarState(collapsed, animate) {
+            if (!animate) {
+                sidebar.style.transition = 'none';
+                content.style.transition = 'none';
+            }
+            if (collapsed) {
+                sidebar.classList.add('collapsed');
+                content.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+                content.classList.remove('collapsed');
+            }
+            if (!animate) {
+                sidebar.offsetHeight;
+                content.offsetHeight;
+                sidebar.style.transition = '';
+                content.style.transition = '';
+            }
+        }
+        const savedCollapsed = localStorage.getItem(COLLAPSED_KEY) === 'true';
+        applySidebarState(savedCollapsed, false);
+
+        if (btnCollapse) {
+            btnCollapse.addEventListener('click', () => {
+                const isCollapsed = sidebar.classList.contains('collapsed');
+                applySidebarState(!isCollapsed, true);
+                localStorage.setItem(COLLAPSED_KEY, String(!isCollapsed));
+                if (popup.classList.contains('open')) {
+                    setTimeout(positionPopup, 290);
+                }
+            });
+        }
+
+        // ----- POPUP DE PERFIL (posicionamiento inteligente) -----
+        function positionPopup() {
+            const btnRect = btnPerfil.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const isMobile = viewportWidth <= 768;
+            const popupWidth = isMobile ? 220 : 210;
+
+            let leftPos, topPos;
+
+            if (isMobile) {
+                topPos = btnRect.bottom + 8;
+                leftPos = btnRect.left;
+                if (leftPos + popupWidth > viewportWidth - 10) {
+                    leftPos = viewportWidth - popupWidth - 10;
+                }
+                if (leftPos < 10) leftPos = 10;
+            } else {
+                topPos = btnRect.top;
+                leftPos = btnRect.right + 8;
+                if (leftPos + popupWidth > viewportWidth - 10) {
+                    leftPos = btnRect.left - popupWidth - 8;
+                }
+                const popupHeight = popup.offsetHeight || 100;
+                if (topPos + popupHeight > viewportHeight - 10) {
+                    topPos = viewportHeight - popupHeight - 10;
+                }
+                if (topPos < 10) topPos = 10;
+            }
+
+            popup.style.top = topPos + 'px';
+            popup.style.left = leftPos + 'px';
+        }
+
+        function openPopup() {
+            positionPopup();
+            popup.classList.add('open');
+            btnPerfil.classList.add('active');
+        }
+
+        function closePopup() {
+            popup.classList.remove('open');
+            btnPerfil.classList.remove('active');
+        }
+
+        btnPerfil.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popup.classList.contains('open') ? closePopup() : openPopup();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!popup.contains(e.target) && e.target !== btnPerfil) {
+                closePopup();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePopup();
+        });
+
+        window.addEventListener('resize', () => {
+            if (popup.classList.contains('open')) positionPopup();
+        });
+    </script>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     @RenderSection("Scripts", required: false)
