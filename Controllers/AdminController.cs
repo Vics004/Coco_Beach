@@ -679,8 +679,7 @@ namespace Coco_Beach.Controllers
 
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_fin >= fechaInicioUtc &&   // ← fecha_fin en lugar de fecha_inicio
-                            r.fecha_fin <= fechaFinUtc &&        // ← fecha_fin en lugar de fecha_inicio
-                            r.estadoid != 4)                     // ← excluir canceladas
+                            r.fecha_fin <= fechaFinUtc)       // ← fecha_fin en lugar de fecha_inicio
                 .ToListAsync();
 
             // Agrupar por habitación
@@ -1666,8 +1665,7 @@ namespace Coco_Beach.Controllers
             var reservasMesQuery = _context.reserva
                 .Where(r => r.fecha_fin.HasValue &&
                             r.fecha_fin.Value >= inicioMesUtc &&
-                            r.fecha_fin.Value <= finMesUtc &&
-                            r.estadoid != 4);
+                            r.fecha_fin.Value <= finMesUtc);
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
             ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal ?? 0);
@@ -1677,8 +1675,7 @@ namespace Coco_Beach.Controllers
                                join rec in _context.recurso on res.recursoid equals rec.recursoid
                                where res.fecha_fin.HasValue &&
                                      res.fecha_fin.Value >= inicioMesUtc &&
-                                     res.fecha_fin.Value <= finMesUtc &&
-                                     res.estadoid != 4
+                                     res.fecha_fin.Value <= finMesUtc
                                group res by new { rec.nombre } into grupo
                                select new
                                {
