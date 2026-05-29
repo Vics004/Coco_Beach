@@ -1,19 +1,19 @@
 ﻿@model persona
 
 @{
-    ViewData["Title"] = "Eliminar Usuario";
+    ViewData["Title"] = "Desactivar Usuario";
     Layout = ViewBag.Layout ?? "~/Views/Shared/_Layout_Administrador.cshtml";
 }
 
 <div class="container-fluid">
 
     <!-- Cabecera de página -->
-    <div class="cb-page-header" style="background: linear-gradient(135deg, #C0392B 0%, #96281B 100%);">
+    <div class="cb-page-header" style="background: linear-gradient(135deg, #D4881A 0%, #B56A10 100%);">
         <div class="d-flex align-items-center">
-            <i class="bi bi-person-x-fill cb-page-header-icon"></i>
+            <i class="bi bi-exclamation-triangle-fill cb-page-header-icon"></i>
             <div>
-                <h2>Desactivar Usuario</h2>
-  
+                <h2>@ViewData["Title"]</h2>
+                <p>Esta acción deshabilitará el recurso, ya no estará disponible para nuevas reservas.</p>
             </div>
         </div>
         <a asp-action="UsuarioIndex" class="cb-btn cb-btn-volver">
@@ -26,9 +26,9 @@
         <div class="cb-card-body">
 
             <!-- Alerta de advertencia -->
-            <div class="cb-alert cb-alert-danger mb-4">
+            <div class="cb-alert cb-alert-warning mb-4" style="background: #FEF3C7; color: #B45309; border-left-color: #F59E0B;">
                 <i class="bi bi-exclamation-triangle-fill" style="font-size:18px;"></i>
-                <span>¿Estás seguro de que deseas desactivar este usuario?</span>
+                <span>¿Estás seguro de que deseas deshabilitar este usuario? Podrás volver a habilitarlo más tarde.</span>
             </div>
 
             <!-- Datos del usuario -->
