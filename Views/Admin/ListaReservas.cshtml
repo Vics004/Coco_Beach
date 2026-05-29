@@ -44,10 +44,16 @@
                 <option value="Cancelado">Cancelado</option>
             </select>
             <div class="d-flex align-items-center gap-1" style="flex-wrap:nowrap;">
-                <input type="date" id="filtroFechaDesde" class="cb-form-control" style="max-width:155px;" title="Fecha entrada desde" />
-                <span style="color:var(--cb-text-muted); font-size:13px;">→</span>
-                <input type="date" id="filtroFechaHasta" class="cb-form-control" style="max-width:155px;" title="Fecha entrada hasta" />
-                <button id="btnLimpiarFechas" class="cb-btn cb-btn-outline" style="padding:6px 10px; font-size:12px; white-space:nowrap;" title="Limpiar fechas">
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;font-weight:700;color:var(--cb-text-muted);text-transform:uppercase;letter-spacing:0.04em;line-height:1;">Entrada desde</label>
+                    <input type="date" id="filtroFechaDesde" class="cb-form-control" style="max-width:155px;" title="Fecha de entrada desde" />
+                </div>
+                <span style="color:var(--cb-text-muted); font-size:13px; margin-top:14px;">→</span>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <label style="font-size:10px;font-weight:700;color:var(--cb-text-muted);text-transform:uppercase;letter-spacing:0.04em;line-height:1;">Entrada hasta</label>
+                    <input type="date" id="filtroFechaHasta" class="cb-form-control" style="max-width:155px;" title="Fecha de entrada hasta" />
+                </div>
+                <button id="btnLimpiarFechas" class="cb-btn cb-btn-outline" style="padding:6px 10px; font-size:12px; white-space:nowrap; margin-top:14px;" title="Limpiar fechas">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>

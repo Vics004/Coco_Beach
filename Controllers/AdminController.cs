@@ -1031,8 +1031,9 @@ namespace Coco_Beach.Controllers
 
             var termino = q.ToLower();
             var clientes = await _context.persona
-                .Where(p => (p.nombre + " " + p.apellido).ToLower().Contains(termino)
-                         || (p.correo != null && p.correo.ToLower().Contains(termino)))
+                .Where(p => p.estado == true   // ← solo clientes activos
+                         && ((p.nombre + " " + p.apellido).ToLower().Contains(termino)
+                          || (p.correo != null && p.correo.ToLower().Contains(termino))))
                 .Take(8)
                 .Select(p => new { p.personaid, p.nombre, p.apellido, p.correo, p.telefono })
                 .ToListAsync();
@@ -1227,6 +1228,17 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> ListaReservas(string tipo = "hotel")
         {
+            // ── Validar acceso según el tipo solicitado y el rol de la sesión ──────────
+            var tipoUsuario = HttpContext.Session.GetString("tipoUsuario") ?? "";
+
+            // "Gerente de Hotel" solo puede ver Hotel, no Rancho
+            if (tipo == "rancho" && tipoUsuario == "Gerente de Hotel")
+                return RedirectToAction("ListaReservas", new { tipo = "hotel" });
+
+            // "Gerente de Rancho" solo puede ver Rancho, no Hotel
+            if (tipo == "hotel" && tipoUsuario == "Gerente de Rancho")
+                return RedirectToAction("ListaReservas", new { tipo = "rancho" });
+
             var query = _context.reserva.AsQueryable();
 
             if (tipo == "rancho")

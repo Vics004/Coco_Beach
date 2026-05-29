@@ -740,8 +740,8 @@
 
 <style>
     /* =========================================
-                   VARIABLES CALENDARIO
-                ========================================= */
+                       VARIABLES CALENDARIO
+                    ========================================= */
     :root {
         --cal-reservado: #29B6D2;
         --cal-proceso: #F5A623;
@@ -754,8 +754,8 @@
     }
 
     /* =========================================
-                   BARRA DE NAVEGACIÓN
-                ========================================= */
+                       BARRA DE NAVEGACIÓN
+                    ========================================= */
     .cal-nav-bar {
         display: flex;
         align-items: center;
@@ -912,8 +912,8 @@
     }
 
     /* =========================================
-                   LEYENDA
-                ========================================= */
+                       LEYENDA
+                    ========================================= */
     .cal-leyenda {
         display: flex;
         gap: 10px;
@@ -958,8 +958,8 @@
     }
 
     /* =========================================
-                   WRAPPER PRINCIPAL
-                ========================================= */
+                       WRAPPER PRINCIPAL
+                    ========================================= */
     .cal-wrapper {
         display: flex;
         height: calc(100vh - 240px);
@@ -976,8 +976,8 @@
     }
 
     /* =========================================
-                   COLUMNA DE RECURSOS
-                ========================================= */
+                       COLUMNA DE RECURSOS
+                    ========================================= */
     .cal-resources-col {
         width: 140px;
         flex-shrink: 0;
@@ -1106,8 +1106,8 @@
     }
 
     /* =========================================
-                   ZONA DE TIMELINE
-                ========================================= */
+                       ZONA DE TIMELINE
+                    ========================================= */
     .cal-timeline-wrap {
         flex: 1;
         overflow-x: auto;
@@ -1303,8 +1303,8 @@
     }
 
     /* =========================================
-                   PÍLDORAS DE RESERVA
-                ========================================= */
+                       PÍLDORAS DE RESERVA
+                    ========================================= */
     .cal-pill {
         position: absolute;
         top: 50%;
@@ -1369,8 +1369,8 @@
     }
 
     /* =========================================
-                   POPOVER
-                ========================================= */
+                       POPOVER
+                    ========================================= */
     .cal-popover {
         position: fixed;
         z-index: 9999;
@@ -1452,8 +1452,8 @@
     }
 
     /* =========================================
-                   MODAL
-                ========================================= */
+                       MODAL
+                    ========================================= */
     .cb-modal-content {
         border-radius: 16px;
         border: none;
@@ -1474,8 +1474,8 @@
         }
 
     /* =========================================
-                   BUSCADOR DE CLIENTE
-                ========================================= */
+                       BUSCADOR DE CLIENTE
+                    ========================================= */
     .cliente-search-wrap {
         position: relative;
     }
@@ -1569,8 +1569,8 @@
         }
 
     /* =========================================
-                   CREAR CLIENTE CARD
-                ========================================= */
+                       CREAR CLIENTE CARD
+                    ========================================= */
     .crear-cliente-card {
         background: #F8FDFF;
         border: 1.5px solid var(--cb-primary);
@@ -1616,8 +1616,8 @@
     }
 
     /* =========================================
-                   INDICADOR DE HOY
-                ========================================= */
+                       INDICADOR DE HOY
+                    ========================================= */
     .cal-today-line {
         position: absolute;
         top: 0;
@@ -1654,8 +1654,8 @@
         }
 
     /* =========================================
-                   BOTONES DE ESTADO EN POPOVER
-                ========================================= */
+                       BOTONES DE ESTADO EN POPOVER
+                    ========================================= */
     .pop-estado-acciones {
         padding: 10px 16px 12px;
         border-top: 1px solid var(--cb-border);
@@ -1750,8 +1750,8 @@
     }
 
     /* =========================================
-                   INFO DE PRECIO EN MODAL
-                ========================================= */
+                       INFO DE PRECIO EN MODAL
+                    ========================================= */
     .modal-precio-info {
         margin-top: 6px;
         font-size: 12px;
@@ -1770,8 +1770,8 @@
         }
 
     /* =========================================
-                   ✅ MINI CALCULADORA
-                ========================================= */
+                       ✅ MINI CALCULADORA
+                    ========================================= */
     .precio-calc-wrap {
         display: flex;
         align-items: center;
@@ -1885,16 +1885,16 @@
         }
 
     /* =========================================
-                   OPCIÓN OCUPADA EN SELECT
-                ========================================= */
+                       OPCIÓN OCUPADA EN SELECT
+                    ========================================= */
     option.opt-bloqueada,
     option:disabled {
         color: #999;
     }
 
     /* =========================================
-                   RESPONSIVE: modal en móvil ocupa todo el ancho
-                ========================================= */
+                       RESPONSIVE: modal en móvil ocupa todo el ancho
+                    ========================================= */
     @@media (max-width: 575px) {
         .modal-dialog {
             margin: 8px;
@@ -1970,8 +1970,8 @@
     const TIPO_CAL = '@tipoCalendario';
     // ✅ Ahora incluimos la propiedad 'libre' para saber si está habilitada
     const RECURSOS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                                                                Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad, libre = r.libre ?? true })
-                                ));
+                                                                                                                                Model.Select(r => new { r.recursoid, r.nombre, r.precio, r.capacidad, libre = r.libre ?? true })
+                                                                ));
 
     // IDs de recursos deshabilitados (se completa desde el servidor al cargar)
     let recursosDeshabilitadosIds = new Set(RECURSOS.filter(r => !r.libre).map(r => r.recursoid));
@@ -2930,7 +2930,7 @@
                 estadoid: parseInt(document.getElementById('modalEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin:    `${fechaFin}T${horaSalida}:00`,
-                preciofinal: parseFloat(document.getElementById('modalPrecio')?.value) || null,
+                preciofinal: (() => { const v = parseFloat(document.getElementById('modalPrecio')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
                 comentario: document.getElementById('modalComentario')?.value.trim() || null
             };
 
@@ -3333,7 +3333,7 @@
                 estadoid: parseInt(document.getElementById('editEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin: `${fechaFin}T${horaSalida}:00`,
-                preciofinal: parseFloat(document.getElementById('editPrecio')?.value) || null,
+                preciofinal: (() => { const v = parseFloat(document.getElementById('editPrecio')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
                 comentario: document.getElementById('editComentario')?.value.trim() || null
             };
 
@@ -3679,6 +3679,9 @@
             mesActual.setMonth(mesActual.getMonth() - 1);
             renderCalendario();
             cargarReservas();
+            // Volver al inicio del mes en el scroll horizontal
+            const wrap = document.getElementById('timelineWrap');
+            if(wrap) wrap.scrollLeft = 0;
         });
     }
 
@@ -3688,6 +3691,9 @@
             mesActual.setMonth(mesActual.getMonth() + 1);
             renderCalendario();
             cargarReservas();
+            // Volver al inicio del mes en el scroll horizontal
+            const wrap = document.getElementById('timelineWrap');
+            if(wrap) wrap.scrollLeft = 0;
         });
     }
 
