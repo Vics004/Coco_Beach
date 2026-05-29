@@ -25,7 +25,6 @@
 
             <form asp-action="MiPerfil" method="post">
 
-                <input type="hidden" name="id" value="@Model.personaid" />
 
                 <div asp-validation-summary="ModelOnly"
                      class="cb-alert cb-alert-danger mb-4">
@@ -112,9 +111,6 @@
                             @Html.ValidationMessage("password")
                         </span>
 
-                        <small class="cb-text-muted">
-                            La contraseña debe tener al menos 8 caracteres.
-                        </small>
                     </div>
 
                 </div>

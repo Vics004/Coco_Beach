@@ -117,12 +117,34 @@
                     </div>
 
                     <div class="col-md-6" id="passwordSection">
+
                         <label class="cb-label">Contraseña</label>
-                        <input type="password" name="password" id="passwordInput" class="cb-form-control" placeholder="••••••••••" />
+
+                        <div class="cb-password-wrapper">
+
+                            <input type="password"
+                                   autocomplete="new-password"
+                                   name="password"
+                                   id="passwordInput"
+                                   class="cb-form-control cb-password-input"
+                                   placeholder="••••••••••" />
+
+                            <button type="button"
+                                    id="togglePassword"
+                                    class="cb-password-toggle">
+
+                                <i class="bi bi-eye-fill"></i>
+
+                            </button>
+
+                        </div>
+
                         <small class="text-muted d-block">
                             * Solo completa este campo si deseas cambiar la contraseña
                         </small>
+
                         @Html.ValidationMessage("password", "", new { @class = "text-danger", style = "font-size:12px;" })
+
                     </div>
 
                     <div class="col-md-6">
@@ -198,6 +220,19 @@
                 '+592': 7,
                 '+597': 7
             };
+                    const togglePasswordBtn = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('passwordInput');
+
+        togglePasswordBtn.addEventListener('click', function () {
+
+            const isPassword = passwordInput.type === 'password';
+
+            passwordInput.type = isPassword ? 'text' : 'password';
+
+            this.innerHTML = isPassword
+                ? '<i class="bi bi-eye-slash-fill"></i>'
+                : '<i class="bi bi-eye-fill"></i>';
+        });
 
             // Función para validar el teléfono
             function validarTelefono() {
@@ -347,6 +382,63 @@
         .cb-btn-volver i {
             pointer-events: none;
         }
+    /* =========================
+       PASSWORD TOGGLE
+    ========================= */
+
+    .cb-password-wrapper {
+        position: relative;
+    }
+
+    .cb-password-input {
+        padding-right: 48px !important;
+    }
+
+    .cb-password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 20;
+        color: var(--cb-text-secondary);
+    }
+
+        .cb-password-toggle:hover {
+            color: var(--cb-primary);
+        }
+
+    /* Quitar iconos nativos */
+
+    /* Edge */
+    input::-ms-reveal,
+    input::-ms-clear {
+        display: none;
+    }
+
+    /* Chrome */
+    input[type="password"]::-webkit-credentials-auto-fill-button,
+    input[type="password"]::-webkit-textfield-decoration-container {
+        display: none !important;
+    }
+
+    /* Safari */
+    input[type="password"]::-webkit-password-toggle-button {
+        display: none;
+    }
+
+    /* General */
+    input[type="password"] {
+        appearance: none;
+        -webkit-appearance: none;
+    }
 </style>
 
 

@@ -380,13 +380,16 @@ namespace Coco_Beach.Controllers
 
         // GET
         [AutenticationAttribute.Autenticacion]
-        public async Task<IActionResult> MiPerfil(int id)
+        public async Task<IActionResult> MiPerfil()
         {
-            // Obtener ID del usuario logueado
+            var userId = HttpContext.Session.GetInt32("personaId");
+
+            if (userId == null)
+                return Unauthorized();
 
             var persona = await _context.persona
                 .Include(p => p.rol)
-                .FirstOrDefaultAsync(p => p.personaid == id);
+                .FirstOrDefaultAsync(p => p.personaid == userId);
 
             if (persona == null)
                 return NotFound();
@@ -394,13 +397,15 @@ namespace Coco_Beach.Controllers
             return View(persona);
         }
 
-        // POST
         [AutenticationAttribute.Autenticacion]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MiPerfil(int id, string password)
+        public async Task<IActionResult> MiPerfil(string password)
         {
+            var userId = HttpContext.Session.GetInt32("personaId");
 
+            if (userId == null)
+                return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(password))
             {
@@ -412,7 +417,7 @@ namespace Coco_Beach.Controllers
             }
 
             var persona = await _context.persona
-                .FirstOrDefaultAsync(p => p.personaid == id);
+                .FirstOrDefaultAsync(p => p.personaid == userId);
 
             if (persona == null)
                 return NotFound();
@@ -420,7 +425,7 @@ namespace Coco_Beach.Controllers
             if (ModelState.IsValid)
             {
                 var usuario = await _context.usuario
-                    .FirstOrDefaultAsync(u => u.personaid == id);
+                    .FirstOrDefaultAsync(u => u.personaid == userId);
 
                 if (usuario != null)
                 {
@@ -637,12 +642,12 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño")]
         public async Task<IActionResult> Finanzas(DateTime? fechaInicio, DateTime? fechaFin)
         {
-            // Establecer fechas por defecto (últimos 30 días)
             if (!fechaInicio.HasValue)
-                fechaInicio = DateTime.Now.AddDays(-30);
+                fechaInicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
             if (!fechaFin.HasValue)
-                fechaFin = DateTime.Now;
+                fechaFin = new DateTime(DateTime.Now.Year, DateTime.Now.Month,
+                    DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
 
             var datosFinanzas = await ObtenerDatosFinanzas(fechaInicio.Value, fechaFin.Value);
             return View(datosFinanzas);
@@ -674,8 +679,7 @@ namespace Coco_Beach.Controllers
 
             var reservasEnRango = await _context.reserva
                 .Where(r => r.fecha_fin >= fechaInicioUtc &&   // ← fecha_fin en lugar de fecha_inicio
-                            r.fecha_fin <= fechaFinUtc &&        // ← fecha_fin en lugar de fecha_inicio
-                            r.estadoid != 4)                     // ← excluir canceladas
+                            r.fecha_fin <= fechaFinUtc)       // ← fecha_fin en lugar de fecha_inicio
                 .ToListAsync();
 
             // Agrupar por habitación
@@ -732,9 +736,11 @@ namespace Coco_Beach.Controllers
         {
             // Validar fechas
             if (fechaInicio == DateTime.MinValue)
-                fechaInicio = DateTime.Now.AddDays(-30);
+                fechaInicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
             if (fechaFin == DateTime.MinValue)
-                fechaFin = DateTime.Now;
+                fechaFin = new DateTime(DateTime.Now.Year, DateTime.Now.Month,
+                    DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
 
             if (fechaInicio > fechaFin)
             {
@@ -826,18 +832,18 @@ namespace Coco_Beach.Controllers
                             {
                                 row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
                                 {
-                                    c.Item().Text($"${totalGanancias:N2}").FontSize(14).Bold();
-                                    c.Item().Text("Ganancias Totales").FontSize(10);
+                                    c.Item().Text($"${totalGanancias:N2}").FontSize(14).Bold().AlignCenter();
+                                    c.Item().Text("Ganancias Estimadas Totales").FontSize(10).AlignCenter();
                                 });
                                 row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
                                 {
-                                    c.Item().Text(totalReservas.ToString()).FontSize(14).Bold();
-                                    c.Item().Text("Reservas Realizadas").FontSize(10);
+                                    c.Item().Text(totalReservas.ToString()).FontSize(14).Bold().AlignCenter();
+                                    c.Item().Text("Reservas Estimadas").FontSize(10).AlignCenter();
                                 });
                                 row.RelativeItem().Border(0.5f).BorderColor("CCCCCC").Padding(5).AlignCenter().Column(c =>
                                 {
-                                    c.Item().Text(totalHabitaciones.ToString()).FontSize(14).Bold();
-                                    c.Item().Text("Recursos con Reservas").FontSize(10);
+                                    c.Item().Text(totalHabitaciones.ToString()).FontSize(14).Bold().AlignCenter();
+                                    c.Item().Text("Recursos con Reservas Estimadas").FontSize(10).AlignCenter();
                                 });
                             });
 
@@ -846,7 +852,7 @@ namespace Coco_Beach.Controllers
                         // Título tabla detallada
                         col.Item().PaddingBottom(8)
                             .Text("Detalle por Recurso")
-                            .FontSize(12).Bold().Underline();
+                            .FontSize(12).Bold();
 
                         // Tabla detallada
                         col.Item()
@@ -1025,8 +1031,9 @@ namespace Coco_Beach.Controllers
 
             var termino = q.ToLower();
             var clientes = await _context.persona
-                .Where(p => (p.nombre + " " + p.apellido).ToLower().Contains(termino)
-                         || (p.correo != null && p.correo.ToLower().Contains(termino)))
+                .Where(p => p.estado == true   // ← solo clientes activos
+                         && ((p.nombre + " " + p.apellido).ToLower().Contains(termino)
+                          || (p.correo != null && p.correo.ToLower().Contains(termino))))
                 .Take(8)
                 .Select(p => new { p.personaid, p.nombre, p.apellido, p.correo, p.telefono })
                 .ToListAsync();
@@ -1221,6 +1228,17 @@ namespace Coco_Beach.Controllers
         [AuthorizeRole("Administrador", "Dueño", "Gerente de Hotel", "Gerente de Rancho", "Encargado")]
         public async Task<IActionResult> ListaReservas(string tipo = "hotel")
         {
+            // ── Validar acceso según el tipo solicitado y el rol de la sesión ──────────
+            var tipoUsuario = HttpContext.Session.GetString("tipoUsuario") ?? "";
+
+            // "Gerente de Hotel" solo puede ver Hotel, no Rancho
+            if (tipo == "rancho" && tipoUsuario == "Gerente de Hotel")
+                return RedirectToAction("ListaReservas", new { tipo = "hotel" });
+
+            // "Gerente de Rancho" solo puede ver Rancho, no Hotel
+            if (tipo == "hotel" && tipoUsuario == "Gerente de Rancho")
+                return RedirectToAction("ListaReservas", new { tipo = "rancho" });
+
             var query = _context.reserva.AsQueryable();
 
             if (tipo == "rancho")
@@ -1251,12 +1269,15 @@ namespace Coco_Beach.Controllers
             ? $"{empleados[r.empleadoid].nombre} {empleados[r.empleadoid].apellido}".Trim()
             : "—",
                 habitacion = recursos.ContainsKey(r.recursoid) ? recursos[r.recursoid].nombre : $"ID {r.recursoid}",
-                estado = estados.ContainsKey(r.estadoid) ? estados[r.estadoid].nombre : $"ID {r.estadoid}",
+                estado = r.estadoid == 3
+                    ? "Finalizado"
+                    : (estados.ContainsKey(r.estadoid) ? estados[r.estadoid].nombre : $"ID {r.estadoid}"),
                 r.estadoid,
                 fecha_inicio = r.fecha_inicio.HasValue ? r.fecha_inicio.Value.ToString("dd/MM/yyyy HH:mm") : "—",
                 fecha_fin = r.fecha_fin.HasValue ? r.fecha_fin.Value.ToString("dd/MM/yyyy HH:mm") : "—",
                 fecha_creacion = r.fecha_creacion.HasValue ? r.fecha_creacion.Value.ToString("dd/MM/yyyy HH:mm") : "—",
-                preciofinal = r.preciofinal.HasValue ? $"${r.preciofinal.Value:N2}" : "—"
+                preciofinal = r.preciofinal.HasValue ? r.preciofinal.Value : (double?)null,
+                preciofinalTexto = r.preciofinal.HasValue ? $"${r.preciofinal.Value:N2}" : "—"
             }).ToList();
 
             ViewBag.Tipo = tipo;
@@ -1654,10 +1675,9 @@ namespace Coco_Beach.Controllers
 
             // ===== KPIs del MES =====
             var reservasMesQuery = _context.reserva
-                .Where(r => r.fecha_fin.HasValue &&         
+                .Where(r => r.fecha_fin.HasValue &&
                             r.fecha_fin.Value >= inicioMesUtc &&
-                            r.fecha_fin.Value <= finMesUtc &&
-                            r.estadoid != 4);              
+                            r.fecha_fin.Value <= finMesUtc);
 
             ViewBag.TotalReservasMes = await reservasMesQuery.CountAsync();
             ViewBag.TotalGananciasMes = await reservasMesQuery.SumAsync(r => r.preciofinal ?? 0);
@@ -1665,10 +1685,9 @@ namespace Coco_Beach.Controllers
             // ===== Ranking de habitaciones =====
             var rankingQuery = from res in _context.reserva
                                join rec in _context.recurso on res.recursoid equals rec.recursoid
-                               where res.fecha_fin.HasValue &&         
+                               where res.fecha_fin.HasValue &&
                                      res.fecha_fin.Value >= inicioMesUtc &&
-                                     res.fecha_fin.Value <= finMesUtc && 
-                                     res.estadoid != 4                 
+                                     res.fecha_fin.Value <= finMesUtc
                                group res by new { rec.nombre } into grupo
                                select new
                                {
@@ -2134,7 +2153,7 @@ namespace Coco_Beach.Controllers
                 sb.AppendLine("    correo      VARCHAR(50) UNIQUE NOT NULL,");
                 sb.AppendLine("    rolid       INTEGER REFERENCES rol(rolid),");
                 sb.AppendLine("    estado      BOOLEAN,");
-                sb.AppendLine("    telefono    VARCHAR(50)");  
+                sb.AppendLine("    telefono    VARCHAR(50)");
                 sb.AppendLine(");");
                 sb.AppendLine();
 
