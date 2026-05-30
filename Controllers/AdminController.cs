@@ -1193,6 +1193,14 @@ namespace Coco_Beach.Controllers
             if (empleadoId == 0)
                 return Unauthorized(new { error = "Sesión no válida. Por favor inicia sesión nuevamente." });
 
+            // ── Validar precio final ────────────────────────────────────────────────
+            if (dto.preciofinal.HasValue && dto.preciofinal.Value <= 0)
+                return BadRequest(new { error = "El precio final debe ser mayor a cero." });
+
+            // ── Validar comentario ──────────────────────────────────────────────────
+            if (!string.IsNullOrEmpty(dto.comentario) && dto.comentario.Trim().Length > 200)
+                return BadRequest(new { error = "El comentario no puede exceder los 200 caracteres." });
+
             var nuevaReserva = new reserva
             {
                 clienteid = dto.clienteid,
@@ -1585,6 +1593,14 @@ namespace Coco_Beach.Controllers
 
             if (inicioUtc >= finUtc)
                 return BadRequest(new { error = "La fecha de inicio debe ser anterior a la fecha de fin." });
+
+            // ── Validar precio final ────────────────────────────────────────────────
+            if (dto.preciofinal.HasValue && dto.preciofinal.Value <= 0)
+                return BadRequest(new { error = "El precio final debe ser mayor a cero." });
+
+            // ── Validar comentario ──────────────────────────────────────────────────
+            if (!string.IsNullOrEmpty(dto.comentario) && dto.comentario.Trim().Length > 200)
+                return BadRequest(new { error = "El comentario no puede exceder los 200 caracteres." });
 
             // Validar traslape excluyendo la reserva que se está editando y las canceladas
             var traslape = await _context.reserva

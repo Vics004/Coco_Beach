@@ -2928,14 +2928,27 @@
                 return;
             }
 
+            const precioValorCrear = parseFloat(document.getElementById('modalPrecio')?.value);
+            const comentarioValorCrear = document.getElementById('modalComentario')?.value?.trim() || '';
+
+            if (document.getElementById('modalPrecio')?.value !== '' && (isNaN(precioValorCrear) || precioValorCrear <= 0)) {
+                mostrarAlerta('El precio final debe ser un número mayor a cero.');
+                return;
+            }
+            if (comentarioValorCrear.length > 200) {
+                mostrarAlerta('El comentario no puede exceder los 200 caracteres.');
+                return;
+            }
+
             const dto = {
                 clienteid: parseInt(clienteid),
                 recursoid: parseInt(document.getElementById('modalRecursoid')?.value),
                 estadoid: parseInt(document.getElementById('modalEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin:    `${fechaFin}T${horaSalida}:00`,
-                preciofinal: (() => { const v = parseFloat(document.getElementById('modalPrecio')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
-                comentario: document.getElementById('modalComentario')?.value.trim() || null
+                preciofinal: (!isNaN(precioValorCrear) && precioValorCrear > 0) ? precioValorCrear : null,
+                comentario: comentarioValorCrear || null
+                
             };
 
             const btn = document.getElementById('btnGuardarReserva');
@@ -3329,6 +3342,18 @@
             const fechaFin = document.getElementById('editFechaFin')?.value;
             const horaSalida = document.getElementById('editHoraSalida')?.value;
             if (!fechaInicio || !fechaFin) { mostrarAlertaEditar('Las fechas son requeridas.'); return; }
+            const precioValorEditar = parseFloat(document.getElementById('editPrecio')?.value);
+            const comentarioValorEditar = document.getElementById('editComentario')?.value?.trim() || '';
+
+            if (document.getElementById('editPrecio')?.value !== '' && (isNaN(precioValorEditar) || precioValorEditar <= 0)) {
+                mostrarAlertaEditar('El precio final debe ser un número mayor a cero.');
+                return;
+            }
+            if (comentarioValorEditar.length > 200) {
+                mostrarAlertaEditar('El comentario no puede exceder los 200 caracteres.');
+                return;
+            }
+
 
             const dto = {
                 reservaid: reservaidEditando,
@@ -3337,8 +3362,9 @@
                 estadoid: parseInt(document.getElementById('editEstadoid')?.value),
                 fecha_inicio: `${fechaInicio}T${horaInicio}:00`,
                 fecha_fin: `${fechaFin}T${horaSalida}:00`,
-                preciofinal: (() => { const v = parseFloat(document.getElementById('editPrecio')?.value); return (!isNaN(v) && v > 0) ? v : null; })(),
-                comentario: document.getElementById('editComentario')?.value.trim() || null
+                preciofinal: (!isNaN(precioValorEditar) && precioValorEditar > 0) ? precioValorEditar : null,
+                comentario: comentarioValorEditar || null
+
             };
 
             const btn = document.getElementById('btnGuardarEdicion');
